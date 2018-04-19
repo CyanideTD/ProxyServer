@@ -1,20 +1,11 @@
 #ifndef _CLIENT_H_
 #define _CLIENT_H_
+#include "Task.h"
+#include "std_header.h"
+#include "GlobalServ.h"
+#include "queue_t.h"
 
-#include <iostream>
-#include <string.h>
-#include <sys/types.h>       
-#include <map>
-#include <base/common/wtsetypedef.h>
-#include <svrpublib/BaseProtocol.h>
-#include <pthread.h>
-#include <errno.h>
-#include <limits>
-#include <unistd.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/time.h>
-
+#define hash_map __gnu_cxx::hash_map
 extern int session;
 extern long long tasks;
 enum EDBPROXYKeySet
@@ -70,15 +61,7 @@ enum RelationDataServiceType
 	EN_SERVICE_TYPE_LOCK2HU__RELEASE_RSP,
 };
 
-#pragma pack(1)
 
-struct LockNode
-{
-    TINT32 type;
-    TINT64  key;
-};
-
-#pragma pack()
 
 class CWorkProcess
 {
@@ -89,19 +72,18 @@ public :
     TINT32   GetLock(bool* endSession);
     TINT32   ReleaseLock(bool* endSession);
     bool     connectTo();
-    void     init(LockNode* nodes, int nudeNum, RelationDataServiceType type);
+    void     init(hash_map<int, int>* map, CQueue<Task>* lock, CQueue<Task>* unlock);
     void     EndSession();
 private :
     int sockfd;
-    LockNode* nodes;
-    int nodeNum;
     CBaseProtocolPack* pack;
     CBaseProtocolUnpack* unPack;
     int seq;
     RelationDataServiceType serviceType;
     TUCHAR* buf;
-    timeval start;
-    timeval end;
+	hash_map<int, int>*  m_LockFreqMap;
+    CQueue<Task>*                   m_LockQue;
+    CQueue<Task>*                   m_UnlockQue;
 };
 
 #endif

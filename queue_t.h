@@ -1,10 +1,8 @@
 #ifndef _QUEUE_T_H_
 #define _QUEUE_T_H_
-#include <semaphore.h>
-#include <queue>
-#include <pthread.h>
-#include <errno.h>
-#include "Client.h"
+#pragma once
+#include "std_header.h"
+#include <vector>
 
 template <typename T>
 class CQueue
@@ -16,18 +14,18 @@ public:
     int Uninit();
 
     int WaitTillPush(const T& Node);
-    int WaitTillPop(T& Node);
+    int WaitTillPop(T*& Node);
 
     int WaitTimePush(const T& Node, unsigned int usec);
-    int WaitTimePop(T& Node, unsigned int usec);
+    int WaitTimePop(T*& Node, unsigned int usec);
 
     bool IsEmpty();
     
     unsigned int GetSize();
     unsigned int GetCapacity();
 
-private:
-    std::priority_queue<T> m_queue;
+public:
+    std::priority_queue<T, std::vector<T>, std::greater<T> > m_queue;
     sem_t m_semExist;
     sem_t m_semEmpty;
     pthread_mutex_t m_mtxQue;
@@ -43,7 +41,7 @@ CQueue<T>::CQueue()
 template <typename T>
 CQueue<T>::~CQueue()
 {
-    
+
 }
 
 template<typename T>
@@ -70,6 +68,13 @@ int CQueue<T>::Init(int maxNode)
 template <typename T>
 int CQueue<T>::Uninit()
 {
+    while (!m_queue.empty())
+    {
+        T node = 0;
+        node = m_queue.top();
+        m_queue.pop();
+        delete node;
+    }
 }
 
 template<typename T>
@@ -120,7 +125,7 @@ int CQueue<T>::WaitTillPush(const T& node)
 }
 
 template<typename T>
-int CQueue<T>::WaitTillPop(T& node)
+int CQueue<T>::WaitTillPop(T*& node)
 {
     int flag = 0;
     while (1)
@@ -149,7 +154,7 @@ int CQueue<T>::WaitTillPop(T& node)
         pthread_mutex_unlock(&m_mtxQue);
         return -1;
     }
-    node = m_queue.top();
+    *node = m_queue.top();
     m_queue.pop();
     flag = sem_post(&m_semEmpty);
     if (flag == -1)
@@ -208,7 +213,7 @@ int CQueue<T>::WaitTimePush(const T& node, unsigned int usec)
         return -1;
     }
 
-    m_queue.push(node);
+    m_queue.push(*node);
     flag = sem_post(&m_semExist);
     if (flag == -1)
     {
@@ -225,7 +230,7 @@ int CQueue<T>::WaitTimePush(const T& node, unsigned int usec)
 }
 
 template<typename T>
-int CQueue<T>::WaitTimePop(T& node, unsigned int usec)
+int CQueue<T>::WaitTimePop(T*& node, unsigned int usec)
 {
     int flag = 0;
     struct timespec ts;
@@ -266,7 +271,7 @@ int CQueue<T>::WaitTimePop(T& node, unsigned int usec)
         return -1;
     }
 
-    node = m_queue.top();
+    *node = m_queue.top();
     m_queue.pop();
     flag = sem_post(&m_semEmpty);
     if (flag == -1)
@@ -299,37 +304,6 @@ template<typename T>
 unsigned int CQueue<T>::GetCapacity()
 {
     return maxNodes;
-}
-
-typedef struct _Task
-{
-    LockNode* tasks;
-    int length;
-    struct timeval time;
-}Task;
-
-bool operator<(const Task& t1, const Task& t2)
-{
-    if (t1.time.tv_sec == t2.time.tv_sec)
-    {
-        return t1.time.tv_usec < t2.time.tv_usec;
-    }
-    else
-    {
-        return t1.time.tv_sec < t2.time.tv_sec;
-    }
-}
-
-bool operator>(const Task& t1, const Task& t2)
-{
-    if (t1.time.tv_sec == t2.time.tv_sec)
-    {
-        return t1.time.tv_usec > t2.time.tv_usec;
-    }
-    else
-    {
-        return t1.time.tv_sec > t2.time.tv_sec;
-    }
 }
 
 #endif
