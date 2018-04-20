@@ -74,7 +74,7 @@ bool CWorkProcess::connectTo()
     int i = connect(sock, (struct sockaddr*)&server, sizeof(server));
     if (i != -1)
     {
-        cout << "connect success" << endl;
+        // cout << "connect success" << endl;
         session++;
         sockfd = sock;
         return true;
@@ -145,14 +145,14 @@ TINT32 CWorkProcess::GetLock(bool* endSession)
 
     pack->ResetContent();
     pack->SetSeq(seq);
-    TUINT32 timeout = 1000000;
+    TUINT32 timeout = 0;
     pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, task->length);
     pack->SetKey(EN_KEY_HU2LOCK__REQ_TIMEOUT_US, timeout);
 
     memcpy(buf, (char*) &task->tasks[0], sizeof(LockNode) * task->length);
 
     pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, buf, sizeof(LockNode) * task->length);
-    pack->SetServiceType(EN_SERVICE_TYPE_HU2LOCK__GET_REQ);
+    pack->SetServiceType(serviceType);
     TUCHAR *pucPackage = NULL;
     TUINT32 udwPackageLen = 0;
     pack->GetPackage(&pucPackage, &udwPackageLen);
@@ -263,10 +263,22 @@ TINT32 CWorkProcess::ReleaseLock(bool* endSession)
     memcpy(buf, (char*)&task->tasks[0], sizeof(LockNode) * task->length);
 
     pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, buf, sizeof(LockNode) * task->length);
-    pack->SetServiceType(EN_SERVICE_TYPE_HU2LOCK__RELEASE_REQ);
+    pack->SetServiceType(serviceType);
     TUCHAR *pucPackage = NULL;
     TUINT32 udwPackageLen = 0;
     pack->GetPackage(&pucPackage, &udwPackageLen);
+
+
+
+
+
+    while (true)
+    {
+        send(sockfd, pucPackage, udwPackageLen, 0);
+        recv(sockfd, buf, 1024, 0);
+    }
+
+
 
     // while (true)
     // {

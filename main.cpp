@@ -29,6 +29,4 @@ int main()
     // signal(SIGPIPE, SIG_IGN);
     GlobalServer::g_GlobalServ->Init(500, 1000);
     GlobalServer::Instance()->Start();
-
-    cout << tasks / 10;
 }
