@@ -10,6 +10,10 @@
         "cstdio": "cpp",
         "cstdlib": "cpp",
         "cwchar": "cpp",
-        "exception": "cpp"
+        "exception": "cpp",
+        "array": "cpp",
+        "initializer_list": "cpp",
+        "utility": "cpp",
+        "*.tcc": "cpp"
     }
 }

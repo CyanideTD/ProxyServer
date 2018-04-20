@@ -24,9 +24,10 @@ public:
 public:
     CWorkProcess*                   m_WorkProcessList;
     hash_map<int, int>*             m_LockFreqMap;
-    CQueue<Task>*                  m_LockQue;
-    CQueue<Task>*                  m_UnlockQue;
+    CQueue<Task*, Cmp>*                  m_LockQue;
+    CQueue<Task*, Cmp>*                  m_UnlockQue;
     int                             m_ProcessNum;
+    struct Cmp                      cmp;
 };
 
 

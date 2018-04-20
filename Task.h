@@ -3,6 +3,7 @@
 
 #include <time.h>
 #include <string.h>
+
 #pragma pack(1)
 
 struct LockNode
@@ -31,35 +32,68 @@ typedef struct _Task
         memset(this, 0, sizeof(struct _Task));
     }
 
+    // _Task& operator=(const _Task& task)
+    // {
+    //     if (this != &task)
+    //     {
+    //         tasks = task.tasks;
+    //         length = task.length;
+    //         memcpy(&time, &task.time, sizeof(time));
+    //     }
+    // }
+
+    friend bool operator>(_Task t1, _Task t2)
+    {
+        if (t1.time.tv_sec == t2.time.tv_sec)
+        {
+            return t1.time.tv_usec > t2.time.tv_usec;
+        }
+        else
+        {
+            return t1.time.tv_sec > t2.time.tv_sec;
+        }
+    }
+
     ~_Task()
     {
-        delete [] tasks;
     }
 
 }Task;
 
-bool operator<(const Task& t1, const Task& t2)
+struct Cmp
 {
-    if (t1.time.tv_sec == t2.time.tv_sec)
+    bool operator() (const Task* t1, const Task* t2)
     {
-        return t1.time.tv_usec < t2.time.tv_usec;
+        if (t1->time.tv_sec == t2->time.tv_sec)
+        {
+            return t1->time.tv_usec > t2->time.tv_usec;
+        }
+        else
+        {
+            return t1->time.tv_sec > t2->time.tv_sec;
+        }
     }
-    else
+};
+
+static bool operator<(const struct timeval& t1, const struct timeval& t2)
+{
+    if (t1.tv_sec == t2.tv_sec)
     {
-        return t1.time.tv_sec < t2.time.tv_sec;
+        return t1.tv_usec < t2.tv_usec;
     }
+    return t1.tv_sec < t2.tv_sec;
 }
 
-bool operator>(const Task& t1, const Task& t2)
-{
-    if (t1.time.tv_sec == t2.time.tv_sec)
-    {
-        return t1.time.tv_usec > t2.time.tv_usec;
-    }
-    else
-    {
-        return t1.time.tv_sec > t2.time.tv_sec;
-    }
-}
+// static bool operator>(const Task& t1, const Task& t2)
+// {
+//     if (t1.time.tv_sec == t2.time.tv_sec)
+//     {
+//         return t1.time.tv_usec > t2.time.tv_usec;
+//     }
+//     else
+//     {
+//         return t1.time.tv_sec > t2.time.tv_sec;
+//     }
+// }
 
 #endif 

@@ -24,10 +24,11 @@ bool GlobalServer::Init(unsigned int threads, int tasks)
 
     g_GlobalServ->m_ProcessNum = threads;
     g_GlobalServ->m_WorkProcessList = new CWorkProcess[threads];
-    g_GlobalServ->m_LockQue = new CQueue<Task>;
+    
+    g_GlobalServ->m_LockQue = new CQueue<Task*, Cmp>;
     g_GlobalServ->m_LockQue->Init(tasks);
 
-    g_GlobalServ->m_UnlockQue = new CQueue<Task>;
+    g_GlobalServ->m_UnlockQue = new CQueue<Task*, Cmp>;
     g_GlobalServ->m_UnlockQue->Init(tasks);
     for (int i = 0; i < threads; i++)
     {
@@ -43,8 +44,8 @@ bool GlobalServer::Init(unsigned int threads, int tasks)
             nodes[j].type = 1;
             nodes[j].key = random(1, 1000000);
         }
-        Task task;
-        task.Init(nodes, 2);
+        Task* task = new Task;
+        task->Init(nodes, 2);
         g_GlobalServ->m_LockQue->WaitTillPush(task);
 
     }
@@ -66,6 +67,5 @@ bool GlobalServer::Start()
     }
 
     delete [] thId;
-    delete [] g_GlobalServ;
 }
 

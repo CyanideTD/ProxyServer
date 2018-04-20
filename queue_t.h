@@ -1,10 +1,9 @@
 #ifndef _QUEUE_T_H_
 #define _QUEUE_T_H_
-#pragma once
 #include "std_header.h"
 #include <vector>
 
-template <typename T>
+template <typename T, class C>
 class CQueue
 {
 public:
@@ -14,10 +13,10 @@ public:
     int Uninit();
 
     int WaitTillPush(const T& Node);
-    int WaitTillPop(T*& Node);
+    int WaitTillPop(T& Node);
 
     int WaitTimePush(const T& Node, unsigned int usec);
-    int WaitTimePop(T*& Node, unsigned int usec);
+    int WaitTimePop(T& Node, unsigned int usec);
 
     bool IsEmpty();
     
@@ -25,27 +24,27 @@ public:
     unsigned int GetCapacity();
 
 public:
-    std::priority_queue<T, std::vector<T>, std::greater<T> > m_queue;
+    std::priority_queue<T, std::vector<T>, C > m_queue;
     sem_t m_semExist;
     sem_t m_semEmpty;
     pthread_mutex_t m_mtxQue;
     unsigned int maxNodes;
 };
 
-template <typename T>
-CQueue<T>::CQueue()
+template <typename T, class C>
+CQueue<T, C>::CQueue()
 {
     maxNodes = 0;
 }
 
-template <typename T>
-CQueue<T>::~CQueue()
+template <typename T, class C>
+CQueue<T, C>::~CQueue()
 {
 
 }
 
-template<typename T>
-int CQueue<T>::Init(int maxNode)
+template <typename T, class C>
+int CQueue<T, C>::Init(int maxNode)
 {
     maxNodes = maxNode;
     int result = 0;
@@ -65,8 +64,8 @@ int CQueue<T>::Init(int maxNode)
     return result;
 }
 
-template <typename T>
-int CQueue<T>::Uninit()
+template <typename T, class C>
+int CQueue<T, C>::Uninit()
 {
     while (!m_queue.empty())
     {
@@ -77,8 +76,8 @@ int CQueue<T>::Uninit()
     }
 }
 
-template<typename T>
-int CQueue<T>::WaitTillPush(const T& node)
+template <typename T, class C>
+int CQueue<T, C>::WaitTillPush(const T& node)
 {
     int flag = 0;
     while (1)
@@ -110,11 +109,7 @@ int CQueue<T>::WaitTillPush(const T& node)
 
     m_queue.push(node);
     flag = sem_post(&m_semExist);
-    if (flag == -1)
-    {
-        pthread_mutex_unlock(&m_mtxQue);
-        return -1;
-    }
+
     flag = pthread_mutex_unlock(&m_mtxQue);
     if (flag == -1)
     {
@@ -124,8 +119,8 @@ int CQueue<T>::WaitTillPush(const T& node)
     return 0;
 }
 
-template<typename T>
-int CQueue<T>::WaitTillPop(T*& node)
+template <typename T, class C>
+int CQueue<T, C>::WaitTillPop(T& node)
 {
     int flag = 0;
     while (1)
@@ -154,7 +149,8 @@ int CQueue<T>::WaitTillPop(T*& node)
         pthread_mutex_unlock(&m_mtxQue);
         return -1;
     }
-    *node = m_queue.top();
+     
+    node = m_queue.top();
     m_queue.pop();
     flag = sem_post(&m_semEmpty);
     if (flag == -1)
@@ -171,8 +167,8 @@ int CQueue<T>::WaitTillPop(T*& node)
     return 0;
 }
 
-template<typename T>
-int CQueue<T>::WaitTimePush(const T& node, unsigned int usec)
+template <typename T, class C>
+int CQueue<T, C>::WaitTimePush(const T& node, unsigned int usec)
 {
     int flag = 0;
     struct timespec ts;
@@ -229,8 +225,8 @@ int CQueue<T>::WaitTimePush(const T& node, unsigned int usec)
     return 0;
 }
 
-template<typename T>
-int CQueue<T>::WaitTimePop(T*& node, unsigned int usec)
+template <typename T, class C>
+int CQueue<T, C>::WaitTimePop(T& node, unsigned int usec)
 {
     int flag = 0;
     struct timespec ts;
@@ -271,7 +267,7 @@ int CQueue<T>::WaitTimePop(T*& node, unsigned int usec)
         return -1;
     }
 
-    *node = m_queue.top();
+    node = m_queue.top();
     m_queue.pop();
     flag = sem_post(&m_semEmpty);
     if (flag == -1)
@@ -288,20 +284,20 @@ int CQueue<T>::WaitTimePop(T*& node, unsigned int usec)
     return 0;
 }
 
-template<typename T>
-bool CQueue<T>:: IsEmpty()
+template <typename T, class C>
+bool CQueue<T, C>:: IsEmpty()
 {
     return m_queue.empty();
 }
 
-template<typename T>
-unsigned int CQueue<T>::GetSize()
+template <typename T, class C>
+unsigned int CQueue<T, C>::GetSize()
 {
     return m_queue.size();
 }
 
-template<typename T>
-unsigned int CQueue<T>::GetCapacity()
+template<typename T, class C>
+unsigned int CQueue<T, C>::GetCapacity()
 {
     return maxNodes;
 }

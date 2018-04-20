@@ -72,7 +72,7 @@ public :
     TINT32   GetLock(bool* endSession);
     TINT32   ReleaseLock(bool* endSession);
     bool     connectTo();
-    void     init(hash_map<int, int>* map, CQueue<Task>* lock, CQueue<Task>* unlock);
+    void     init(hash_map<int, int>* map, CQueue<Task*, Cmp>* lock, CQueue<Task*, Cmp>* unlock);
     void     EndSession();
 private :
     int sockfd;
@@ -82,8 +82,8 @@ private :
     RelationDataServiceType serviceType;
     TUCHAR* buf;
 	hash_map<int, int>*  m_LockFreqMap;
-    CQueue<Task>*                   m_LockQue;
-    CQueue<Task>*                   m_UnlockQue;
+    CQueue<Task*, Cmp>*                   m_LockQue;
+    CQueue<Task*, Cmp>*                   m_UnlockQue;
 };
 
 #endif

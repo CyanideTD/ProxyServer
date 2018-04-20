@@ -43,7 +43,7 @@ CWorkProcess::~CWorkProcess()
     delete [] buf;
 }
 
-void CWorkProcess::init(hash_map<int, int>* map, CQueue<Task>* lock, CQueue<Task>* unlock)
+void CWorkProcess::init(hash_map<int, int>* map, CQueue<Task*, Cmp>* lock, CQueue<Task*, Cmp>* unlock)
 {
     this->serviceType = EN_SERVICE_TYPE_HU2LOCK__GET_REQ;
     m_LockFreqMap = map;
@@ -74,7 +74,7 @@ bool CWorkProcess::connectTo()
     int i = connect(sock, (struct sockaddr*)&server, sizeof(server));
     if (i != -1)
     {
-        // cout << "connect success" << endl;
+        cout << "connect success" << endl;
         session++;
         sockfd = sock;
         return true;
@@ -122,7 +122,7 @@ TINT32 CWorkProcess::GetLock(bool* endSession)
     // while (true)
     // {
     int flag = 0;
-    Task* task = NULL;
+    Task* task = 0;
     m_LockQue->WaitTillPop(task);
 
     // flag = IsLockMap(true);
@@ -219,13 +219,13 @@ TINT32 CWorkProcess::GetLock(bool* endSession)
         // cout << "lock succeed" << endl;
         serviceType = EN_SERVICE_TYPE_HU2LOCK__RELEASE_REQ;
         gettimeofday(&(task->time), NULL);
-        task->time.tv_sec += 1;
-        m_UnlockQue->WaitTillPush(*task);
+        task->time.tv_sec += 0;
+        m_UnlockQue->WaitTillPush(task);
     }
     else
     {
         cout << "lock failed " << ret << endl;
-        m_LockQue->WaitTillPush(*task);   
+        m_LockQue->WaitTillPush(task);   
     }
     // }
     
@@ -247,7 +247,13 @@ TINT32 CWorkProcess::ReleaseLock(bool* endSession)
 
     Task* task = 0;
     m_UnlockQue->WaitTillPop(task);
-
+    struct timeval cur;
+    gettimeofday(&cur, NULL);
+    if (cur < task->time)
+    {
+        m_UnlockQue->WaitTillPush(task);
+        return 0;
+    }
     pack->ResetContent();
     pack->SetSeq(seq);
     pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, task->length);
@@ -302,7 +308,7 @@ TINT32 CWorkProcess::ReleaseLock(bool* endSession)
     {
         // cout << "release succeed" << endl;
         serviceType = EN_SERVICE_TYPE_HU2LOCK__GET_REQ;
-
+        m_LockQue->WaitTillPush(task);
     }
     else 
     {
