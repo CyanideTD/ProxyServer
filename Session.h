@@ -14,6 +14,7 @@ public:
     TUINT32        m_GlobalSeq;
     TUCHAR         m_szReqBuf[10 << 10];
     TUINT32        m_udwReqBufLen;
+    bool           m_bIsBinaryData;
 
     TVOID Init()
     {

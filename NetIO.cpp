@@ -18,8 +18,9 @@ NetIO::~NetIO()
     m_poUnpack->Uninit();
 }
 
-int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue)
+int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue, bool bIsHttpListen)
 {
+    m_bIsHttpListen = bIsHttpListen;
     m_poWorkQueue = poWorkQueue;
     m_ReceQue = poRecvQue;
     m_uwPort = htons(uwPort);
@@ -39,7 +40,7 @@ int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueu
         return -1;
     }
 
-    if (m_poLongConn->InitLongConn(this, 1024, m_hListenSock, 100U) == FALSE)
+    if (m_poLongConn->InitLongConn(this, 1024, m_hListenSock, 100U, 0, 0, bIsHttpListen) == FALSE)
     {
         return -1;
     }
@@ -67,7 +68,9 @@ TVOID* NetIO::RoutineNetIO(TVOID* pParam)
 
 SOCKET NetIO::CreateListenSocket(TCHAR* pszListenHost, TUINT16 udwPort)
 {
+    int flag = 1;
     int sock = socket(AF_INET, SOCK_STREAM, 0);
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
     if (sock < 0)
     {
         return -1;
@@ -77,7 +80,7 @@ SOCKET NetIO::CreateListenSocket(TCHAR* pszListenHost, TUINT16 udwPort)
     host.sin_port = htons(udwPort);
     inet_aton(pszListenHost, &host.sin_addr);
     host.sin_family = AF_INET;
-    int flag = bind(sock, (struct sockaddr*)&host, sizeof(host));
+    flag = bind(sock, (struct sockaddr*)&host, sizeof(host));
     if (flag < 0)
     {
         return -1;
@@ -108,12 +111,14 @@ TVOID NetIO::OnUserRequest(LongConnHandle stHandle, const TUCHAR* pszData, TUINT
     memcpy(session->m_szReqBuf, pszData, udwDataLen);
     session->m_stHandle = stHandle;
     session->m_udwReqBufLen = udwDataLen;
+    session->m_bIsBinaryData = !m_bIsHttpListen;
     m_poWorkQueue->WaitTillPush(session);
 }
 
 TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
 {
     SessionWrapper* session = 0;
+
     m_poUnpack->UntachPackage();
     m_poUnpack->AttachPackage(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
     m_poUnpack->Unpack();
@@ -131,17 +136,19 @@ TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
         
     }
 
-    int client_seq = session->m_udwClientSeq;
-
-
-    memcpy(pstTasksGrp->m_Tasks[0]._pReceivedData + 23, &client_seq, 4);
+    if (!m_bIsHttpListen)
+    {
+        int client_seq = session->m_udwClientSeq;
+        memcpy(pstTasksGrp->m_Tasks[0]._pReceivedData + 23, &client_seq, 4);
+    }
     
-    LTasksGroup* stTasks = new LTasksGroup;
-    stTasks->m_Tasks[0].SetConnSession(session->m_stHandle);
-    stTasks->m_Tasks[0].SetSendData(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
-    stTasks->m_Tasks[0].SetNeedResponse(0);
-    stTasks->SetValidTasks(1);
-    m_poLongConn->SendData(stTasks);
+    LTasksGroup stTasks;
+    stTasks.m_Tasks[0].SetConnSession(session->m_stHandle);
+    stTasks.m_Tasks[0].SetSendData(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
+    stTasks.m_Tasks[0].SetNeedResponse(0);
+    stTasks.SetValidTasks(1);
+    
+    m_poLongConn->SendData(&stTasks);
 
     delete session;
 

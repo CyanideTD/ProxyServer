@@ -72,16 +72,18 @@ public :
     static void* Start(TVOID *pParam);
 	TVOID*   WorkRoutine();
 
-    void     init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, LongConnHandle handle);
+    void     init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, LongConnHandle handle, ILongConn* httpsend, LongConnHandle httphandle);
 
 private :
     CBaseProtocolPack* pack;
     CBaseProtocolUnpack* unPack;
 	CTaskQueue*			 m_dWorkQueue;
-	LongConnHandle		 LockServer;
-	ILongConn*			 m_SendLongConn;
-
+	LongConnHandle		 m_lBinaryLockServer;
+	ILongConn*			 m_IBinaryLongConn;
 	CTaskQueue*          m_ReceQueue;
+
+	LongConnHandle		 m_LHttpLockServer;
+	ILongConn*			 m_IHttpLongConn;
 };
 
 #endif
