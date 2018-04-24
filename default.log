@@ -1,0 +1,60 @@
+[2018-04-23 17:46:22]:INFO: Long conn init time:1524476782
+[2018-04-23 17:54:04]:INFO: Long conn init time:1524477244
+[2018-04-23 17:54:04]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 17:54:04]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 17:57:25]:INFO: Long conn init time:1524477445
+[2018-04-23 17:57:25]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 17:57:25]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 17:59:17]:INFO: Long conn init time:1524477557
+[2018-04-23 17:59:17]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 17:59:17]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 17:59:53]:INFO: Long conn init time:1524477593
+[2018-04-23 18:00:51]:INFO: Long conn init time:1524477651
+[2018-04-23 18:06:41]:INFO: Long conn init time:1524478001
+[2018-04-23 18:15:25]:INFO: Long conn init time:1524478525
+[2018-04-23 18:21:08]:INFO: Long conn init time:1524478868
+[2018-04-23 18:22:48]:INFO: Long conn init time:1524478968
+[2018-04-23 18:34:21]:INFO: Long conn init time:1524479661
+[2018-04-23 18:34:21]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 18:34:21]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 18:34:46]:INFO: Long conn init time:1524479686
+[2018-04-23 18:34:46]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 18:34:46]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 18:34:57]:INFO: Long conn init time:1524479697
+[2018-04-23 18:34:57]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 18:34:57]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 18:35:02]:INFO: Long conn init time:1524479702
+[2018-04-23 18:35:02]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 18:35:02]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 18:39:39]:INFO: Long conn init time:1524479979
+[2018-04-23 18:39:39]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 18:39:39]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 18:40:58]:INFO: Long conn init time:1524480058
+[2018-04-23 18:40:58]:ERROR: Connect to server FAIL:127.0.0.1:16060,error:115,Operation now in progress, socket=6
+[2018-04-23 18:40:58]:ERROR: CreateLongConnSession fail, pLCNode->hSock=-1
+[2018-04-23 18:41:24]:INFO: Long conn init time:1524480084
+[2018-04-23 22:07:51]:INFO: Long conn init time:1524492471
+[2018-04-23 22:09:24]:INFO: Long conn init time:1524492564
+[2018-04-23 22:09:27]:INFO: Long conn init time:1524492567
+[2018-04-23 22:09:32]:INFO: Long conn init time:1524492572
+[2018-04-23 22:14:06]:INFO: Long conn init time:1524492846
+[2018-04-23 22:14:10]:ERROR: Invalid Session handle:0x(nil),on task[0]
+[2018-04-23 22:22:42]:INFO: Long conn init time:1524493362
+[2018-04-24 08:03:44]:INFO: Long conn init time:1524528224
+[2018-04-24 08:11:30]:INFO: Long conn init time:1524528690
+[2018-04-24 08:14:34]:ERROR: Invalid Length or Too Many Data In Package:1275068416,data len:1275068416,_MAX_BUFF_V=2097152
+[2018-04-24 08:16:03]:INFO: Long conn init time:1524528963
+[2018-04-24 08:16:07]:ERROR: Invalid Length or Too Many Data In Package:1275068416,data len:1275068416,_MAX_BUFF_V=2097152
+[2018-04-24 08:40:04]:INFO: Long conn init time:1524530404
+[2018-04-24 08:40:35]:INFO: Long conn init time:1524530435
+[2018-04-24 08:51:27]:INFO: Long conn init time:1524531087
+[2018-04-24 09:00:47]:INFO: Long conn init time:1524531647
+[2018-04-24 09:02:19]:INFO: Long conn init time:1524531739
+[2018-04-24 09:02:27]:ERROR: ValidHandle() Fail,pLCNode->SockDir=0(0:SOCK_DIR_UNKNOWN),pSession:0x0x7f6a356093d8,fd=-1
+[2018-04-24 09:02:27]:ERROR: OnTaskFinished,dirtype=SOCK_DIR_UNKNOWN,Invalid Long Conn Session
+[2018-04-24 09:06:25]:ERROR: ValidHandle() Fail,pLCNode->SockDir=0(0:SOCK_DIR_UNKNOWN),pSession:0x0x7f6a35609798,fd=-1
+[2018-04-24 09:06:25]:ERROR: OnTaskFinished,dirtype=SOCK_DIR_UNKNOWN,Invalid Long Conn Session
+[2018-04-24 09:16:10]:INFO: Long conn init time:1524532570
+[2018-04-24 09:16:16]:ERROR: ValidHandle() Fail,pLCNode->SockDir=0(0:SOCK_DIR_UNKNOWN),pSession:0x0x7fd7d02b63d8,fd=-1
+[2018-04-24 09:16:16]:ERROR: OnTaskFinished,dirtype=SOCK_DIR_UNKNOWN,Invalid Long Conn Session
+[2018-04-24 09:18:15]:INFO: Long conn init time:1524532695

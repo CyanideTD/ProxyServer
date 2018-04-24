@@ -1,12 +1,16 @@
-#include <svrpublib/ServerPubLib.h>
-#include <GlobalServ.h>
+#ifndef _NETIO_H_
+#define _NETIO_H_
+
+#include "GlobalServ.h"
+#include "Session.h"
+
 class NetIO : ITasksGroupCallBack
 {
 public:
     NetIO();
     ~NetIO();
 
-    int Init(TCHAR* pszIp, TUINT16 uwPort, CQueue<Task*, Cmp>* poWorkQueue);
+    int Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue);
 
     int Uninit();
 
@@ -33,11 +37,15 @@ public:
 public:
 
     ILongConn*           m_poLongConn;
-    CQueue<Task*, Cmp>*  m_poWorkQueue;
+    CTaskQueue*          m_poWorkQueue;
     TINT32               m_hListenSock;
     CBaseProtocolPack*   m_poPack;
     CBaseProtocolUnpack*   m_poUnpack;
     TCHAR                m_szIp[4];
     TUINT16              m_uwPort;
+    CTaskQueue*         m_ReceQue;
+    LongConnHandle      m_uLockServer;
 
 };
+
+#endif

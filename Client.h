@@ -1,6 +1,7 @@
 #ifndef _CLIENT_H_
 #define _CLIENT_H_
 #include "Task.h"
+#include "Session.h"
 #include "std_header.h"
 #include "GlobalServ.h"
 #include "queue_t.h"
@@ -69,21 +70,18 @@ public :
     CWorkProcess();
     ~CWorkProcess();
     static void* Start(TVOID *pParam);
-    TINT32   GetLock(bool* endSession);
-    TINT32   ReleaseLock(bool* endSession);
-    bool     connectTo();
-    void     init(hash_map<int, int>* map, CQueue<Task*, Cmp>* lock, CQueue<Task*, Cmp>* unlock);
-    void     EndSession();
+	TVOID*   WorkRoutine();
+
+    void     init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, LongConnHandle handle);
+
 private :
-    int sockfd;
     CBaseProtocolPack* pack;
     CBaseProtocolUnpack* unPack;
-    int seq;
-    RelationDataServiceType serviceType;
-    TUCHAR* buf;
-	hash_map<int, int>*  m_LockFreqMap;
-    CQueue<Task*, Cmp>*                   m_LockQue;
-    CQueue<Task*, Cmp>*                   m_UnlockQue;
+	CTaskQueue*			 m_dWorkQueue;
+	LongConnHandle		 LockServer;
+	ILongConn*			 m_SendLongConn;
+
+	CTaskQueue*          m_ReceQueue;
 };
 
 #endif

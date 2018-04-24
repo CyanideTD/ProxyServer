@@ -18,10 +18,11 @@ NetIO::~NetIO()
     m_poUnpack->Uninit();
 }
 
-int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CQueue<Task*, Cmp>* poWorkQueue)
+int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue)
 {
     m_poWorkQueue = poWorkQueue;
-    m_uwPort = uwPort;
+    m_ReceQue = poRecvQue;
+    m_uwPort = htons(uwPort);
     TUINT32 ip = inet_addr(pszIp);
     memcpy(m_szIp, &ip, sizeof(TUINT32));
 
@@ -42,6 +43,8 @@ int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CQueue<Task*, Cmp>* poWorkQueue)
     {
         return -1;
     }
+
+    m_uLockServer = m_poLongConn->CreateLongConnSession("127.0.0.1", 16060);
 
     m_poPack = new CBaseProtocolPack;
     m_poPack->Init();
@@ -71,7 +74,7 @@ SOCKET NetIO::CreateListenSocket(TCHAR* pszListenHost, TUINT16 udwPort)
     }
 
     struct sockaddr_in host;
-    host.sin_port = udwPort;
+    host.sin_port = htons(udwPort);
     inet_aton(pszListenHost, &host.sin_addr);
     host.sin_family = AF_INET;
     int flag = bind(sock, (struct sockaddr*)&host, sizeof(host));
@@ -100,7 +103,48 @@ int NetIO::CloseListenSocket()
 
 TVOID NetIO::OnUserRequest(LongConnHandle stHandle, const TUCHAR* pszData, TUINT32 udwDataLen, TINT32 &dwWillResponse)
 {
+    dwWillResponse = true;
+    SessionWrapper* session = new SessionWrapper;
+    memcpy(session->m_szReqBuf, pszData, udwDataLen);
+    session->m_stHandle = stHandle;
+    session->m_udwReqBufLen = udwDataLen;
+    m_poWorkQueue->WaitTillPush(session);
+}
+
+TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
+{
+    SessionWrapper* session = 0;
+    m_poUnpack->UntachPackage();
+    m_poUnpack->AttachPackage(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
+    m_poUnpack->Unpack();
+    int seq = m_poUnpack->GetSeq();
+    while (1)
+    {
+        m_ReceQue->WaitTillPop(session);
+        if (session->m_GlobalSeq == seq)
+        {
+            break;
+        }
+        else {
+            m_ReceQue->WaitTillPush(session);
+        }
+        
+    }
+
+    int client_seq = session->m_udwClientSeq;
+
+
+    memcpy(pstTasksGrp->m_Tasks[0]._pReceivedData + 23, &client_seq, 4);
     
+    LTasksGroup* stTasks = new LTasksGroup;
+    stTasks->m_Tasks[0].SetConnSession(session->m_stHandle);
+    stTasks->m_Tasks[0].SetSendData(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
+    stTasks->m_Tasks[0].SetNeedResponse(0);
+    stTasks->SetValidTasks(1);
+    m_poLongConn->SendData(stTasks);
+
+    delete session;
+
 }
 
 
