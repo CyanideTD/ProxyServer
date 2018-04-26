@@ -5,6 +5,7 @@
 #include <utility>
 
 GlobalServer* GlobalServer::g_GlobalServ = NULL;
+CTaskQueue    g_lNodeMgr;
 
 GlobalServer* GlobalServer::Instance()
 {
@@ -19,18 +20,28 @@ GlobalServer* GlobalServer::Instance()
     return g_GlobalServ;
 }
 
-void GlobalServer::Init(unsigned int threads, int tasks)
+void GlobalServer::Init(unsigned int threads, int fressNode)
 {
     GlobalServer::Instance();
+
+    g_lNodeMgr.Init(fressNode);
+    for (int i = 0; i < fressNode; i++)
+    {
+        SessionWrapper* session = new SessionWrapper();
+        g_lNodeMgr.WaitTillPush(session);
+    }
 
     g_GlobalServ->m_ProcessNum = threads;
     g_GlobalServ->m_WorkProcessList = new CWorkProcess[threads];
     
     g_GlobalServ->m_RecvQue = new CTaskQueue;
-    g_GlobalServ->m_RecvQue->Init(tasks);
+    g_GlobalServ->m_RecvQue->Init(fressNode);
 
     g_GlobalServ->m_WorkQue = new CTaskQueue;
-    g_GlobalServ->m_WorkQue->Init(tasks);
+    g_GlobalServ->m_WorkQue->Init(fressNode);
+
+    g_GlobalServ->m_cFreeSession = new CTaskQueue;
+    g_GlobalServ->m_cFreeSession->Init(fressNode);
 
 
     g_GlobalServ->binary_net_io = new NetIO;

@@ -5,6 +5,12 @@
 #include "svrpublib/ILongConn.h"
 #include "queue_t.h"
 
+typedef enum _State
+{
+    TO_LOCK,
+    SEND_BACK,
+    UNKNOW
+}TaskStake;
 
 class SessionWrapper
 {
@@ -12,9 +18,11 @@ public:
     LongConnHandle m_stHandle;
     TUINT32        m_udwClientSeq;
     TUINT32        m_GlobalSeq;
-    TUCHAR         m_szReqBuf[10 << 10];
-    TUINT32        m_udwReqBufLen;
+    TUCHAR         m_szData[10 << 10];
+    TUINT32        m_udwBufLen;
     bool           m_bIsBinaryData;
+    TaskStake      m_sState;
+
 
     TVOID Init()
     {
@@ -25,8 +33,9 @@ public:
     {
         m_udwClientSeq = 0;
         m_GlobalSeq = 0;
-        m_udwReqBufLen = 0;
-
+        m_udwBufLen = 0;
+        m_sState = UNKNOW;
+        memset(m_szData, 0, sizeof(m_szData));
     }
 
 };

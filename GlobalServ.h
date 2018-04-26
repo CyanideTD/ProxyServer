@@ -31,6 +31,8 @@ public:
     int                             m_ProcessNum;
     NetIO*                          binary_net_io;
     NetIO*                          http_net_io;
+
+    CTaskQueue*                     m_cFreeSession;
 };
 
 

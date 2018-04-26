@@ -6,7 +6,7 @@ using namespace std;
 
 long glo_Seq = 0;
 pthread_mutex_t seq_lock = PTHREAD_MUTEX_INITIALIZER;
-
+extern CTaskQueue    g_lNodeMgr;
 
 CWorkProcess::CWorkProcess()
 {
@@ -56,119 +56,174 @@ TVOID* CWorkProcess::WorkRoutine()
 
     if (session->m_bIsBinaryData)
     {
-        *pack = CBaseProtocolPack(session->m_szReqBuf, session->m_udwReqBufLen, session->m_udwReqBufLen);
         
-        pthread_mutex_lock(&seq_lock);
-        int seq = htonl(glo_Seq);
-        glo_Seq++;
-        pthread_mutex_unlock(&seq_lock);
+        LongConnHandle handle;
+        bool needRes = false;
+        if (session->m_sState == TO_LOCK)
+        {
+            handle = m_lBinaryLockServer;
+            needRes = true;
+        }
+        else
+        {
+            handle = session->m_stHandle;
+        }
 
-        memcpy(&session->m_udwClientSeq,session->m_szReqBuf + 23, 4);
-        memcpy(session->m_szReqBuf + 23, &seq, 4);
-        session->m_GlobalSeq = ntohl(seq);
-
-        LTasksGroup* stTasks = new LTasksGroup;
-        stTasks->m_Tasks[0].SetConnSession(m_lBinaryLockServer);
-        stTasks->m_Tasks[0].SetSendData(session->m_szReqBuf, session->m_udwReqBufLen);
-        stTasks->m_Tasks[0].SetNeedResponse(1);
-        stTasks->SetValidTasks(1);
-        m_IBinaryLongConn->SendData(stTasks);
-
-        m_ReceQueue->WaitTillPush(session);
+        LTasksGroup stTasks;
+        stTasks.m_UserData1.ptr = session;
+        stTasks.m_Tasks[0].SetConnSession(handle);
+        stTasks.m_Tasks[0].SetSendData(session->m_szData, session->m_udwBufLen);
+        stTasks.m_Tasks[0].SetNeedResponse(needRes);
+        stTasks.SetValidTasks(1);
+        m_IBinaryLongConn->SendData(&stTasks);
+        if (session->m_sState == TO_LOCK)
+        {
+            // m_ReceQueue->WaitTillPush(session);
+        }
+        else
+        {
+            session->Reset();
+            g_lNodeMgr.WaitTillPush(session);
+        }
     } 
     else
     {
-        std::string request((char*)session->m_szReqBuf, session->m_udwReqBufLen);
-        std::istringstream iss(request);
-        string method;
-        string query;
-        string protocol;
+        if (session->m_sState == TO_LOCK)
+        {   
+            std::string request((char*)session->m_szData, session->m_udwBufLen);
+            std::istringstream iss(request);
+            string method;
+            string query;
+            string protocol;
 
-        if (!(iss >> method >> query >> protocol))
-        {
-            cout << "ERROR: parsing request\n";
-        }
-
-        iss.clear();
-        iss.str(query);
-
-        string url;
-
-        if (!getline(iss, url, '?'))
-        {
-            cout << "ERROR: parsing request\n";
-        }
-
-        map<string, string> params;
-        string keyval, key, val;
-        while (getline(iss, keyval, '&'))
-        {
-            istringstream iss(keyval);
-            if (getline(getline(iss, key, '='), val))
+            if (!(iss >> method >> query >> protocol))
             {
-                params[key] = val;
+                cout << "ERROR: parsing request\n";
             }
-        }
 
-        cout << "protocol: " << protocol << "\n";
-        cout << "method  : " << method << "\n";
-        cout << "url     :" << url << "\n";
+            iss.clear();
+            iss.str(query);
 
-        cout << "params  : " << params["key"] << "\n";
-        cout << "params  : " << params["type"] << "\n";
+            string url;
 
-        istringstream keys(params["key"]);
-        istringstream types(params["type"]);
-
-        pack->ResetContent();
-        pack->SetServiceType((TUINT32)atoi(params["service"].c_str()));
-        
-        pthread_mutex_lock(&seq_lock);
-        int seq = glo_Seq;
-        glo_Seq++;
-        pthread_mutex_unlock(&seq_lock);
-
-        pack->SetSeq(seq);
-        TUINT32 num = 0;
-        TUCHAR* buf = new TUCHAR[10240];
-
-
-        do 
-        {
-            string _key;
-            string _type;
-            getline(keys, _key, '+');
-            getline(types, _type, '+');
-            if (_key == "" || _type == "")
+            if (!getline(iss, url, '?'))
             {
-                break;
+                cout << "ERROR: parsing request\n";
             }
-            int k = atoi(_key.c_str());
-            int t = atoi(_type.c_str());
-            LockNode node;
-            node.key = k;
-            node.type = t;
-            memcpy(buf + num * sizeof(node), &node, sizeof(node));
-            num++;
-        } while (keys && types);
 
-        pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, (TUINT32)num);
-        pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, buf, num * sizeof(LockNode));
-        TUCHAR* pucPackage = NULL;
-        TUINT32 udwPackageLen = 0;
-        pack->GetPackage(&pucPackage, &udwPackageLen);
+            map<string, string> params;
+            string keyval, key, val;
+            while (getline(iss, keyval, '&'))
+            {
+                istringstream iss(keyval);
+                if (getline(getline(iss, key, '='), val))
+                {
+                    params[key] = val;
+                }
+            }
 
-        LTasksGroup stTasks;
-        stTasks.m_Tasks[0].SetConnSession(m_LHttpLockServer);
-        stTasks.m_Tasks[0].SetSendData(pucPackage, udwPackageLen);
-        stTasks.m_Tasks[0].SetNeedResponse(1);
-        stTasks.SetValidTasks(1);
-        m_IHttpLongConn->SendData(&stTasks);
+            cout << "protocol: " << protocol << "\n";
+            cout << "method  : " << method << "\n";
+            cout << "url     :" << url << "\n";
 
-        m_ReceQueue->WaitTillPush(session);
+            cout << "params  : " << params["key"] << "\n";
+            cout << "params  : " << params["type"] << "\n";
+
+            istringstream keys(params["key"]);
+            istringstream types(params["type"]);
+
+            pack->ResetContent();
+            pack->SetServiceType((TUINT32)atoi(params["service"].c_str()));
+            
+            pthread_mutex_lock(&seq_lock);
+            int seq = glo_Seq;
+            glo_Seq++;
+            pthread_mutex_unlock(&seq_lock);
+
+            pack->SetSeq(seq);
+            TUINT32 num = 0;
+            TUCHAR* buf = new TUCHAR[10240];
 
 
-        delete [] buf;
+            do 
+            {
+                string _key;
+                string _type;
+                getline(keys, _key, '+');
+                getline(types, _type, '+');
+                if (_key == "" || _type == "")
+                {
+                    break;
+                }
+                int k = atoi(_key.c_str());
+                int t = atoi(_type.c_str());
+                LockNode node;
+                node.key = k;
+                node.type = t;
+                memcpy(buf + num * sizeof(node), &node, sizeof(node));
+                num++;
+            } while (keys && types);
+
+            pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, (TUINT32)num);
+            pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, buf, num * sizeof(LockNode));
+            TUCHAR* pucPackage = NULL;
+            TUINT32 udwPackageLen = 0;
+            pack->GetPackage(&pucPackage, &udwPackageLen);
+
+            LTasksGroup stTasks;
+            stTasks.m_Tasks[0].SetConnSession(m_LHttpLockServer);
+            stTasks.m_Tasks[0].SetSendData(pucPackage, udwPackageLen);
+            stTasks.m_Tasks[0].SetNeedResponse(1);
+            stTasks.SetValidTasks(1);
+            stTasks.m_UserData1.ptr = session;
+            m_IHttpLongConn->SendData(&stTasks);
+
+            // m_ReceQueue->WaitTillPush(session);
+
+
+            delete [] buf;
+        }
+        else
+        {
+            unPack->UntachPackage();
+            unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
+            unPack->Unpack();
+            TINT32 ret;
+            unPack->GetVal(EN_GLOBAL_KEY__RES_CODE, &ret);
+
+            LTasksGroup stTasks;
+            stTasks.m_Tasks[0].SetConnSession(session->m_stHandle);
+            stTasks.m_Tasks[0].ucIsPureData = 0;
+            const char* res = "mission success";
+
+            TUCHAR* buf = new TUCHAR[10240];
+            TUINT32 length = 4;
+            const char* response = "HTTP/1.1 200 OK\r\n";
+            const char* content_type = "Content-Type:text\r\n\r\n";
+            const char* body = "succeed";
+            const char* content_length = "Content-Length:8\r\n";
+
+            memcpy(buf + length, response, sizeof(*response));
+            length += sizeof(response);
+            memcpy(buf + length, content_type, sizeof(*content_type));
+            length += sizeof(content_length);
+            memcpy(buf + length, content_length, sizeof(*content_length));
+            length += sizeof(content_type);
+            memcpy(buf + length, body, sizeof(*body));
+            length += sizeof(body);
+
+            TUINT32 netlength = htonl(length);
+            memcpy(buf, &netlength, 4);
+
+            stTasks.m_Tasks[0].SetSendData(buf, length);
+            stTasks.m_Tasks[0].SetNeedResponse(0);
+            stTasks.m_Tasks[0].ucIsPureData = 0;
+            stTasks.SetValidTasks(1);
+            m_IHttpLongConn->SendData(&stTasks);
+            session->Reset();
+            g_lNodeMgr.WaitTillPush(session);
+            delete [] buf;
+        }
     }
 
 }

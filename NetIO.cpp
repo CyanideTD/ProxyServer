@@ -1,5 +1,7 @@
 #include "NetIO.h"
 
+extern CTaskQueue    g_lNodeMgr;
+
 NetIO::NetIO()
 {
 
@@ -107,50 +109,42 @@ int NetIO::CloseListenSocket()
 TVOID NetIO::OnUserRequest(LongConnHandle stHandle, const TUCHAR* pszData, TUINT32 udwDataLen, TINT32 &dwWillResponse)
 {
     dwWillResponse = true;
-    SessionWrapper* session = new SessionWrapper;
-    memcpy(session->m_szReqBuf, pszData, udwDataLen);
+    SessionWrapper* session = 0;
+    g_lNodeMgr.WaitTillPop(session);
+    memcpy(session->m_szData, pszData, udwDataLen);
     session->m_stHandle = stHandle;
-    session->m_udwReqBufLen = udwDataLen;
+    session->m_udwBufLen = udwDataLen;
     session->m_bIsBinaryData = !m_bIsHttpListen;
+    session->m_sState = TO_LOCK;
     m_poWorkQueue->WaitTillPush(session);
 }
 
 TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
 {
     SessionWrapper* session = 0;
-
-    m_poUnpack->UntachPackage();
-    m_poUnpack->AttachPackage(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
-    m_poUnpack->Unpack();
-    int seq = m_poUnpack->GetSeq();
-    while (1)
-    {
-        m_ReceQue->WaitTillPop(session);
-        if (session->m_GlobalSeq == seq)
-        {
-            break;
-        }
-        else {
-            m_ReceQue->WaitTillPush(session);
-        }
-        
-    }
-
-    if (!m_bIsHttpListen)
-    {
-        int client_seq = session->m_udwClientSeq;
-        memcpy(pstTasksGrp->m_Tasks[0]._pReceivedData + 23, &client_seq, 4);
-    }
+    session = (SessionWrapper*) pstTasksGrp->m_UserData1.ptr;
+    session->m_sState = SEND_BACK;
     
-    LTasksGroup stTasks;
-    stTasks.m_Tasks[0].SetConnSession(session->m_stHandle);
-    stTasks.m_Tasks[0].SetSendData(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
-    stTasks.m_Tasks[0].SetNeedResponse(0);
-    stTasks.SetValidTasks(1);
-    
-    m_poLongConn->SendData(&stTasks);
+    memcpy(session->m_szData, pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
+    session->m_udwBufLen = pstTasksGrp->m_Tasks[0]._uReceivedDataLen;
+    m_poWorkQueue->WaitTillPush(session);
 
-    delete session;
+
+    // if (!m_bIsHttpListen)
+    // {
+    //     int client_seq = session->m_udwClientSeq;
+    //     memcpy(pstTasksGrp->m_Tasks[0]._pReceivedData + 23, &client_seq, 4);
+    // }
+    
+    // LTasksGroup stTasks;
+    // stTasks.m_Tasks[0].SetConnSession(session->m_stHandle);
+    // stTasks.m_Tasks[0].SetSendData(pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
+    // stTasks.m_Tasks[0].SetNeedResponse(0);
+    // stTasks.SetValidTasks(1);
+    
+    // m_poLongConn->SendData(&stTasks);
+
+    // delete session;
 
 }
 
