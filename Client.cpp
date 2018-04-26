@@ -62,36 +62,17 @@ TVOID* CWorkProcess::WorkRoutine()
         
         LongConnHandle handle;
         bool needRes = false;
+        ILongConn* conn = 0;
         if (session->m_sState == TO_LOCK)
         {
             handle = lock_server;
             needRes = true;
-
-            // pack->ResetContent();
-            // unPack->UntachPackage();
-            // unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
-            // TUCHAR* buf = 0;
-            // TUINT32 bodylen = -1;
-            // unPack->Unpack();
-            // unPack->GetBodyData(buf, bodylen);
-            // pack->SetBodyData(buf, bodylen);
-            // unPack->GetReservedData(&buf, &bodylen);
-            // pack->SetReservedData(buf, bodylen);
-            
-            // pthread_mutex_lock(&seq_lock);
-            // memcpy(session->m_szData + 23, &glo_Seq, 4);
-            // glo_Seq++;
-            // pthread_mutex_unlock(&seq_lock);
-
-            // pack->GetPackage(&buf, &bodylen);
-            // memcpy(session->m_szData, buf, bodylen);
-            // session->m_udwBufLen = bodylen;
-
-
+            conn = m_ILockConn;
         }
         else
         {
             handle = session->m_stHandle;
+            conn = m_IBinaryRecvConn;
         }
 
         LTasksGroup stTasks;
@@ -101,7 +82,7 @@ TVOID* CWorkProcess::WorkRoutine()
         stTasks.m_Tasks[0].SetNeedResponse(needRes);
         stTasks.SetValidTasks(1);
         
-            m_IBinaryRecvConn->SendData(&stTasks);
+        conn->SendData(&stTasks);
         
         if (session->m_sState == TO_LOCK)
         {
@@ -198,12 +179,12 @@ TVOID* CWorkProcess::WorkRoutine()
             pack->GetPackage(&pucPackage, &udwPackageLen);
 
             LTasksGroup stTasks;
-            stTasks.m_Tasks[0].SetConnSession(m_LHttpLockServer);
+            stTasks.m_Tasks[0].SetConnSession(lock_server);
             stTasks.m_Tasks[0].SetSendData(pucPackage, udwPackageLen);
             stTasks.m_Tasks[0].SetNeedResponse(1);
             stTasks.SetValidTasks(1);
             stTasks.m_UserData1.ptr = session;
-            m_IHttpLongConn->SendData(&stTasks);
+            m_ILockConn->SendData(&stTasks);
 
             // m_ReceQueue->WaitTillPush(session);
 
@@ -252,11 +233,11 @@ TVOID* CWorkProcess::WorkRoutine()
             cout << buf;
 
 
-            int sock = m_IHttpLongConn->GetSockHandle(session->m_stHandle);
+            int sock = m_IHttpRecvConn->GetSockHandle(session->m_stHandle);
             
             send(sock, buf, length, 0);
 
-            m_IHttpLongConn->RemoveLongConnSession(session->m_stHandle);
+            m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
             session->Reset();
             g_lNodeMgr.WaitTillPush(session);
             delete [] buf;
