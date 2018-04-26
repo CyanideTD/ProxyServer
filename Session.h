@@ -18,7 +18,7 @@ public:
     LongConnHandle m_stHandle;
     TUINT32        m_udwClientSeq;
     TUINT32        m_GlobalSeq;
-    TUCHAR         m_szData[10 << 10];
+    TUCHAR*        m_szData;
     TUINT32        m_udwBufLen;
     bool           m_bIsBinaryData;
     TaskStake      m_sState;
@@ -26,16 +26,19 @@ public:
 
     TVOID Init()
     {
+        m_szData = new TUCHAR[10240];
+
         Reset();
     }
 
     TVOID Reset()
     {
+        memset(&m_stHandle, 0, sizeof(m_stHandle));
         m_udwClientSeq = 0;
         m_GlobalSeq = 0;
         m_udwBufLen = 0;
         m_sState = UNKNOW;
-        memset(m_szData, 0, sizeof(m_szData));
+        memset(m_szData, 0, 10240);
     }
 
 };

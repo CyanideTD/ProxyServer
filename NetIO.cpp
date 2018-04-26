@@ -20,11 +20,12 @@ NetIO::~NetIO()
     m_poUnpack->Uninit();
 }
 
-int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue, bool bIsHttpListen)
+int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue, bool bIsHttpListen, bool bIsConnToServ)
 {
     m_bIsHttpListen = bIsHttpListen;
     m_poWorkQueue = poWorkQueue;
     m_ReceQue = poRecvQue;
+    m_bIsConnToServ = bIsConnToServ;
     m_uwPort = htons(uwPort);
     TUINT32 ip = inet_addr(pszIp);
     memcpy(m_szIp, &ip, sizeof(TUINT32));
@@ -47,8 +48,11 @@ int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueu
         return -1;
     }
 
-    m_uLockServer = m_poLongConn->CreateLongConnSession("127.0.0.1", 16060);
-
+    if (bIsConnToServ)
+    {
+        m_uLockServer = m_poLongConn->CreateLongConnSession("127.0.0.1", 16060);
+    }
+    
     m_poPack = new CBaseProtocolPack;
     m_poPack->Init();
     m_poUnpack = new CBaseProtocolUnpack;

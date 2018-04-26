@@ -10,7 +10,7 @@ public:
     NetIO();
     ~NetIO();
 
-    int Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue, bool bIsHttpListten);
+    int Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueue* poRecvQue, bool bIsHttpListten, bool isConnToLock);
 
     int Uninit();
 
@@ -46,6 +46,7 @@ public:
     CTaskQueue*         m_ReceQue;
     LongConnHandle      m_uLockServer;
     bool                m_bIsHttpListen;
+    bool                m_bIsConnToServ;
 
 };
 

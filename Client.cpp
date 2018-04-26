@@ -24,14 +24,15 @@ CWorkProcess::~CWorkProcess()
     delete [] unPack;
 }
 
-void CWorkProcess::init(CTaskQueue* work_queue, CTaskQueue* recvQue, ILongConn* send, LongConnHandle handle, ILongConn* httpsend, LongConnHandle httphandle)
+void CWorkProcess::init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, 
+                        ILongConn* httpsend, ILongConn* lock, LongConnHandle lockserver)
 {
-    m_dWorkQueue = work_queue;
+    m_dWorkQueue = taskQueue;
     m_ReceQueue = recvQue;
-    m_IBinaryLongConn = send;
-    m_lBinaryLockServer = handle;
-    m_IHttpLongConn = httpsend;
-    m_LHttpLockServer = httphandle;
+    m_IBinaryRecvConn = send;
+    m_IHttpRecvConn = httpsend;
+    m_ILockConn = lock;
+    lock_server = lockserver;
 }
 
 
@@ -54,6 +55,8 @@ TVOID* CWorkProcess::WorkRoutine()
     SessionWrapper* session = 0;
     m_dWorkQueue->WaitTillPop(session);
 
+
+
     if (session->m_bIsBinaryData)
     {
         
@@ -61,8 +64,30 @@ TVOID* CWorkProcess::WorkRoutine()
         bool needRes = false;
         if (session->m_sState == TO_LOCK)
         {
-            handle = m_lBinaryLockServer;
+            handle = lock_server;
             needRes = true;
+
+            // pack->ResetContent();
+            // unPack->UntachPackage();
+            // unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
+            // TUCHAR* buf = 0;
+            // TUINT32 bodylen = -1;
+            // unPack->Unpack();
+            // unPack->GetBodyData(buf, bodylen);
+            // pack->SetBodyData(buf, bodylen);
+            // unPack->GetReservedData(&buf, &bodylen);
+            // pack->SetReservedData(buf, bodylen);
+            
+            // pthread_mutex_lock(&seq_lock);
+            // memcpy(session->m_szData + 23, &glo_Seq, 4);
+            // glo_Seq++;
+            // pthread_mutex_unlock(&seq_lock);
+
+            // pack->GetPackage(&buf, &bodylen);
+            // memcpy(session->m_szData, buf, bodylen);
+            // session->m_udwBufLen = bodylen;
+
+
         }
         else
         {
@@ -75,7 +100,9 @@ TVOID* CWorkProcess::WorkRoutine()
         stTasks.m_Tasks[0].SetSendData(session->m_szData, session->m_udwBufLen);
         stTasks.m_Tasks[0].SetNeedResponse(needRes);
         stTasks.SetValidTasks(1);
-        m_IBinaryLongConn->SendData(&stTasks);
+        
+            m_IBinaryRecvConn->SendData(&stTasks);
+        
         if (session->m_sState == TO_LOCK)
         {
             // m_ReceQueue->WaitTillPush(session);
@@ -191,35 +218,45 @@ TVOID* CWorkProcess::WorkRoutine()
             TINT32 ret;
             unPack->GetVal(EN_GLOBAL_KEY__RES_CODE, &ret);
 
-            LTasksGroup stTasks;
-            stTasks.m_Tasks[0].SetConnSession(session->m_stHandle);
-            stTasks.m_Tasks[0].ucIsPureData = 0;
-            const char* res = "mission success";
+            char* buf = new char[10240];
+            TUINT32 length = 0;
+            char* response = "HTTP/1.1 200 OK\r\n";
+            char* content_type = "Content-Type:text/html\r\n\r\n";
+            char* body;
+            if (ret == 0)
+            {
+                body = "<h1> succeed <h1>";
+            }
+            else
+            {
+                body = "<h1> failed <h1>";
+            }
+            char* encoding = "Content-Encoding:application\r\n";
+            char* header = "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />";
 
-            TUCHAR* buf = new TUCHAR[10240];
-            TUINT32 length = 4;
-            const char* response = "HTTP/1.1 200 OK\r\n";
-            const char* content_type = "Content-Type:text\r\n\r\n";
-            const char* body = "succeed";
-            const char* content_length = "Content-Length:8\r\n";
+            strcat(buf, response);
+            length += strlen(response);
 
-            memcpy(buf + length, response, sizeof(*response));
-            length += sizeof(response);
-            memcpy(buf + length, content_type, sizeof(*content_type));
-            length += sizeof(content_length);
-            memcpy(buf + length, content_length, sizeof(*content_length));
-            length += sizeof(content_type);
-            memcpy(buf + length, body, sizeof(*body));
-            length += sizeof(body);
+            strcat(buf, encoding);
+            length += strlen(encoding);
 
-            TUINT32 netlength = htonl(length);
-            memcpy(buf, &netlength, 4);
+            strcat(buf, content_type);
+            length += strlen(content_type);
 
-            stTasks.m_Tasks[0].SetSendData(buf, length);
-            stTasks.m_Tasks[0].SetNeedResponse(0);
-            stTasks.m_Tasks[0].ucIsPureData = 0;
-            stTasks.SetValidTasks(1);
-            m_IHttpLongConn->SendData(&stTasks);
+            strcat(buf, header);
+            length += strlen(header);
+            
+            strcat(buf, body);
+            length += strlen(body);
+
+            cout << buf;
+
+
+            int sock = m_IHttpLongConn->GetSockHandle(session->m_stHandle);
+            
+            send(sock, buf, length, 0);
+
+            m_IHttpLongConn->RemoveLongConnSession(session->m_stHandle);
             session->Reset();
             g_lNodeMgr.WaitTillPush(session);
             delete [] buf;

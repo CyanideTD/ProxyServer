@@ -29,8 +29,10 @@ public:
     CTaskQueue*                     m_WorkQue;
     CTaskQueue*                     m_RecvQue;
     int                             m_ProcessNum;
-    NetIO*                          binary_net_io;
-    NetIO*                          http_net_io;
+    NetIO*                          binary_receive;
+    NetIO*                          http_receive;
+    
+    NetIO*                          net_send;                          
 
     CTaskQueue*                     m_cFreeSession;
 };

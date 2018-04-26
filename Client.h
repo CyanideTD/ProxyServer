@@ -7,7 +7,6 @@
 #include "queue_t.h"
 
 #define hash_map __gnu_cxx::hash_map
-extern int session;
 extern long long tasks;
 enum EDBPROXYKeySet
 {
@@ -72,18 +71,20 @@ public :
     static void* Start(TVOID *pParam);
 	TVOID*   WorkRoutine();
 
-    void     init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, LongConnHandle handle, ILongConn* httpsend, LongConnHandle httphandle);
+    void     init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, ILongConn* httpsend, ILongConn* lock, LongConnHandle lockserver);
 
 private :
     CBaseProtocolPack* pack;
     CBaseProtocolUnpack* unPack;
 	CTaskQueue*			 m_dWorkQueue;
-	LongConnHandle		 m_lBinaryLockServer;
-	ILongConn*			 m_IBinaryLongConn;
+	LongConnHandle		 lock_server;
+	ILongConn*			 m_IBinaryRecvConn;
 	CTaskQueue*          m_ReceQueue;
 
-	LongConnHandle		 m_LHttpLockServer;
-	ILongConn*			 m_IHttpLongConn;
+	ILongConn*			 m_IHttpRecvConn;
+
+	ILongConn*			 m_ILockConn;
+
 };
 
 #endif
