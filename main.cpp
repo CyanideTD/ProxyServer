@@ -27,6 +27,6 @@ int main()
 {
     InitSignal();
     // signal(SIGPIPE, SIG_IGN);
-    GlobalServer::g_GlobalServ->Init(1, 500);
+    GlobalServer::g_GlobalServ->Init(1, 1);
     GlobalServer::Instance()->Start();
 }

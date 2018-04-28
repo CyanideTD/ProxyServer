@@ -24,6 +24,8 @@ void GlobalServer::Init(unsigned int threads, int fressNode)
 {
     GlobalServer::Instance();
 
+    g_GlobalServ->InitDatabase();
+
     g_lNodeMgr.Init(fressNode);
     for (int i = 0; i < fressNode; i++)
     {
@@ -58,7 +60,7 @@ void GlobalServer::Init(unsigned int threads, int fressNode)
     {
         g_GlobalServ->m_WorkProcessList[i].init(g_GlobalServ->m_WorkQue, g_GlobalServ->m_RecvQue, 
                                                 g_GlobalServ->binary_receive->m_poLongConn, g_GlobalServ->http_receive->m_poLongConn,
-                                                g_GlobalServ->net_send->m_poLongConn, g_GlobalServ->net_send->m_uLockServer);
+                                                g_GlobalServ->net_send->m_poLongConn, g_GlobalServ->net_send->m_uLockServer, g_GlobalServ->con);
     }
 
 }
@@ -88,3 +90,9 @@ bool GlobalServer::Start()
     delete [] thId;
 }
 
+void GlobalServer::InitDatabase()
+{
+    driver = get_driver_instance();
+    con = driver->connect(URL, USER, PASS);
+    con->setSchema(DATABASE);
+}

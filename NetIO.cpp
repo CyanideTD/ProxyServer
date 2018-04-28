@@ -52,7 +52,7 @@ int NetIO::Init(TCHAR* pszIp, TUINT16 uwPort, CTaskQueue* poWorkQueue, CTaskQueu
     {
         m_uLockServer = m_poLongConn->CreateLongConnSession("127.0.0.1", 16060);
     }
-    
+
     m_poPack = new CBaseProtocolPack;
     m_poPack->Init();
     m_poUnpack = new CBaseProtocolUnpack;

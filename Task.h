@@ -3,6 +3,8 @@
 
 #include <time.h>
 #include <string.h>
+#include <map>
+#include "std_header.h"
 
 #pragma pack(1)
 
@@ -13,6 +15,17 @@ struct LockNode
 };
 
 #pragma pack()
+
+struct ProxyData
+{
+    int lock_num;
+    LockNode   lock_list[10];
+    TUINT16 type;
+    int timeout;
+    int seq;
+
+    int _retCode;
+};
 
 typedef struct _Task
 {

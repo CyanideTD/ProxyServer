@@ -25,7 +25,7 @@ CWorkProcess::~CWorkProcess()
 }
 
 void CWorkProcess::init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, 
-                        ILongConn* httpsend, ILongConn* lock, LongConnHandle lockserver)
+                        ILongConn* httpsend, ILongConn* lock, LongConnHandle lockserver, sql::Connection* con)
 {
     m_dWorkQueue = taskQueue;
     m_ReceQueue = recvQue;
@@ -33,6 +33,7 @@ void CWorkProcess::init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* s
     m_IHttpRecvConn = httpsend;
     m_ILockConn = lock;
     lock_server = lockserver;
+    m_dbConn = con;
 }
 
 
@@ -50,54 +51,34 @@ void* CWorkProcess::Start(TVOID* pParam)
     return NULL;
 }
 
-TVOID* CWorkProcess::WorkRoutine()
+void CWorkProcess::ParsePackage(SessionWrapper* session, ProxyData* data)
 {
-    SessionWrapper* session = 0;
-    m_dWorkQueue->WaitTillPop(session);
-
-
-
-    if (session->m_bIsBinaryData)
+    if (session->m_bIsBinaryData || session->m_sState == SEND_BACK)
     {
-        
-        LongConnHandle handle;
-        bool needRes = false;
-        ILongConn* conn = 0;
+        unPack->UntachPackage();
+        unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
+        unPack->Unpack();
+        data->seq = unPack->GetSeq();
+        data->type = unPack->GetServiceType();
         if (session->m_sState == TO_LOCK)
         {
-            handle = lock_server;
-            needRes = true;
-            conn = m_ILockConn;
+            unPack->GetVal(EN_KEY_HU2LOCK__REQ_KEY_NUM, &data->lock_num);
+            TUINT32 bufLen = 0;
+            TUCHAR* pszValBuf = 0;
+            unPack->GetVal(EN_KEY_HU2LOCK__REQ_KEY_LIST, &pszValBuf, &bufLen);
+            unPack->GetVal(EN_KEY_HU2LOCK__REQ_TIMEOUT_US, &data->timeout);
+            session->m_udwClientSeq = unPack->GetSeq();
         }
         else
         {
-            handle = session->m_stHandle;
-            conn = m_IBinaryRecvConn;
-        }
+            unPack->GetVal(EN_GLOBAL_KEY__RES_CODE, &data->_retCode);
 
-        LTasksGroup stTasks;
-        stTasks.m_UserData1.ptr = session;
-        stTasks.m_Tasks[0].SetConnSession(handle);
-        stTasks.m_Tasks[0].SetSendData(session->m_szData, session->m_udwBufLen);
-        stTasks.m_Tasks[0].SetNeedResponse(needRes);
-        stTasks.SetValidTasks(1);
-        
-        conn->SendData(&stTasks);
-        
-        if (session->m_sState == TO_LOCK)
-        {
-            // m_ReceQueue->WaitTillPush(session);
         }
-        else
-        {
-            session->Reset();
-            g_lNodeMgr.WaitTillPush(session);
-        }
-    } 
+    }
     else
     {
         if (session->m_sState == TO_LOCK)
-        {   
+        {
             std::string request((char*)session->m_szData, session->m_udwBufLen);
             std::istringstream iss(request);
             string method;
@@ -152,7 +133,6 @@ TVOID* CWorkProcess::WorkRoutine()
             TUINT32 num = 0;
             TUCHAR* buf = new TUCHAR[10240];
 
-
             do 
             {
                 string _key;
@@ -165,83 +145,167 @@ TVOID* CWorkProcess::WorkRoutine()
                 }
                 int k = atoi(_key.c_str());
                 int t = atoi(_type.c_str());
-                LockNode node;
-                node.key = k;
-                node.type = t;
-                memcpy(buf + num * sizeof(node), &node, sizeof(node));
+                data->lock_list[num].key = k;;
+                data->lock_list[num].type = t;
                 num++;
             } while (keys && types);
 
-            pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, (TUINT32)num);
-            pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, buf, num * sizeof(LockNode));
-            TUCHAR* pucPackage = NULL;
-            TUINT32 udwPackageLen = 0;
-            pack->GetPackage(&pucPackage, &udwPackageLen);
-
-            LTasksGroup stTasks;
-            stTasks.m_Tasks[0].SetConnSession(lock_server);
-            stTasks.m_Tasks[0].SetSendData(pucPackage, udwPackageLen);
-            stTasks.m_Tasks[0].SetNeedResponse(1);
-            stTasks.SetValidTasks(1);
-            stTasks.m_UserData1.ptr = session;
-            m_ILockConn->SendData(&stTasks);
-
-            // m_ReceQueue->WaitTillPush(session);
-
-
-            delete [] buf;
-        }
-        else
-        {
-            unPack->UntachPackage();
-            unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
-            unPack->Unpack();
-            TINT32 ret;
-            unPack->GetVal(EN_GLOBAL_KEY__RES_CODE, &ret);
-
-            char* buf = new char[10240];
-            TUINT32 length = 0;
-            char* response = "HTTP/1.1 200 OK\r\n";
-            char* content_type = "Content-Type:text/html\r\n\r\n";
-            char* body;
-            if (ret == 0)
-            {
-                body = "<h1> succeed <h1>";
-            }
-            else
-            {
-                body = "<h1> failed <h1>";
-            }
-            char* encoding = "Content-Encoding:application\r\n";
-            char* header = "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />";
-
-            strcat(buf, response);
-            length += strlen(response);
-
-            strcat(buf, encoding);
-            length += strlen(encoding);
-
-            strcat(buf, content_type);
-            length += strlen(content_type);
-
-            strcat(buf, header);
-            length += strlen(header);
-            
-            strcat(buf, body);
-            length += strlen(body);
-
-            cout << buf;
-
-
-            int sock = m_IHttpRecvConn->GetSockHandle(session->m_stHandle);
-            
-            send(sock, buf, length, 0);
-
-            m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
-            session->Reset();
-            g_lNodeMgr.WaitTillPush(session);
-            delete [] buf;
+            data->lock_num = num;
+            data->type = EN_SERVICE_TYPE_HU2LOCK__GET_REQ;
+            data->timeout = atoi(params["timeout"].c_str());
         }
     }
+}
 
+void CWorkProcess::DoSomeThing(SessionWrapper* session, ProxyData* data)
+{
+    std::auto_ptr<sql::PreparedStatement> prep_stmt(m_dbConn->prepareStatement("SELECT * FROM test where Handle=(?)"));
+    prep_stmt->setInt(1, session->m_stHandle.SerialNum);
+    std::auto_ptr<sql::ResultSet> res(prep_stmt->executeQuery());
+    if (res->next())
+    {
+        int num = res->getInt("Count");
+        num++;
+        std::auto_ptr<sql::PreparedStatement> prep_stmt(m_dbConn->prepareStatement("UPDATE test SET Count=(?) WHERE Handle=(?)"));
+        prep_stmt->setInt(1, num);
+        prep_stmt->setInt(2, session->m_stHandle.SerialNum);
+        prep_stmt->execute();
+    }
+    else
+    {
+        std::auto_ptr<sql::PreparedStatement> prep_stmt(m_dbConn->prepareStatement("INSERT INTO test(Handle, Count) VALUE(?,1)"));
+        prep_stmt->setInt(1, session->m_stHandle.SerialNum);
+        prep_stmt->execute();
+    }
+}
+
+void CWorkProcess::ProcessPackage(SessionWrapper* session, ProxyData* data)
+{
+    if (session->m_sState == TO_LOCK)
+    {
+        DoSomeThing(session, data);
+    }
+}
+
+void CWorkProcess::SendPackage(SessionWrapper* session, ProxyData* data, bool* isContinue)
+{
+    pack->ResetContent();
+
+    if (session->m_sState == TO_LOCK)
+    {
+        pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, data->lock_num);
+        pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, (TUCHAR*)data->lock_list, sizeof(LockNode) * data->lock_num);
+        pack->SetKey(EN_KEY_HU2LOCK__REQ_TIMEOUT_US, data->timeout);
+        pthread_mutex_lock(&seq_lock);
+        pack->SetSeq(glo_Seq++);
+        pthread_mutex_unlock(&seq_lock);
+    }
+    else 
+    {
+        pack->SetSeq(session->m_udwClientSeq);
+        pack->SetKey(EN_GLOBAL_KEY__RES_CODE, data->_retCode);
+    }
+
+    TUCHAR *pucPackage = NULL;
+	TUINT32 udwPackageLen = 0;
+    pack->SetServiceType(data->type);
+    pack->GetPackage(&pucPackage, &udwPackageLen);
+
+
+    ILongConn* conn = m_IBinaryRecvConn;
+    LongConnHandle handle = session->m_stHandle;
+    int i = 0;
+
+    if (session->m_sState == TO_LOCK)
+    {
+        conn = m_ILockConn;
+        handle =lock_server;
+        i = 1;
+    }
+
+    LTasksGroup        stTasks;
+	stTasks.m_Tasks[0].SetConnSession(handle);
+	stTasks.m_Tasks[0].SetSendData(pucPackage, udwPackageLen);
+	stTasks.m_Tasks[0].SetNeedResponse(i);
+	stTasks.SetValidTasks(1);
+    stTasks.m_UserData1.ptr = session;
+
+    if (session->m_sState==TO_LOCK)
+    {
+    }
+    else
+    {
+        session->Reset();
+        g_lNodeMgr.WaitTillPush(session);
+    }
+
+    conn->SendData(&stTasks);
+}
+
+void CWorkProcess::SendTextPackage(SessionWrapper* session, ProxyData* data)
+{
+    char* buf = new char[10240];
+    TUINT32 length = 0;
+    char* response = "HTTP/1.1 200 OK\r\n";
+    char* content_type = "Content-Type:text/html\r\n\r\n";
+    char* body;
+    if (data->_retCode == 0)
+    {
+        body = "<h1> succeed <h1>";
+    }
+    else
+    {
+        body = "<h1> failed <h1>";
+    }
+    char* encoding = "Content-Encoding:application\r\n";
+    char* header = "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />";
+
+    strcat(buf, response);
+    length += strlen(response);
+
+    strcat(buf, encoding);
+    length += strlen(encoding);
+
+    strcat(buf, content_type);
+    length += strlen(content_type);
+
+    strcat(buf, header);
+    length += strlen(header);
+    
+    strcat(buf, body);
+    length += strlen(body);
+
+    cout << buf;
+
+
+    int sock = m_IHttpRecvConn->GetSockHandle(session->m_stHandle);
+    
+    send(sock, buf, length, 0);
+
+    m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
+    session->Reset();
+    g_lNodeMgr.WaitTillPush(session);
+    delete [] buf;
+}
+
+TVOID* CWorkProcess::WorkRoutine()
+{
+    SessionWrapper* session = 0;
+    m_dWorkQueue->WaitTillPop(session);
+
+    ProxyData data;
+    bool isContinue = false;
+
+    ParsePackage(session, &data);
+
+    ProcessPackage(session, &data);
+
+    if (session->m_sState == SEND_BACK && !session->m_bIsBinaryData)
+    {
+        SendTextPackage(session, &data);
+    }
+    else
+    {
+        SendPackage(session, &data, &isContinue);
+    }
 }

@@ -36,17 +36,17 @@ public:
 
 public:
 
-    ILongConn*           m_poLongConn;
-    CTaskQueue*          m_poWorkQueue;
-    TINT32               m_hListenSock;
-    CBaseProtocolPack*   m_poPack;
+    ILongConn*             m_poLongConn;
+    CTaskQueue*            m_poWorkQueue;
+    TINT32                 m_hListenSock;
+    CBaseProtocolPack*     m_poPack;
     CBaseProtocolUnpack*   m_poUnpack;
-    TCHAR                m_szIp[4];
-    TUINT16              m_uwPort;
-    CTaskQueue*         m_ReceQue;
-    LongConnHandle      m_uLockServer;
-    bool                m_bIsHttpListen;
-    bool                m_bIsConnToServ;
+    TCHAR                  m_szIp[4];
+    TUINT16                m_uwPort;
+    CTaskQueue*            m_ReceQue;
+    LongConnHandle         m_uLockServer;
+    bool                   m_bIsHttpListen;
+    bool                   m_bIsConnToServ;
 
 };
 

@@ -22,6 +22,7 @@ public:
     static void Init(unsigned int threadsNum, int tasks);
 
     bool Start();
+    void InitDatabase();
 
 public:
     CWorkProcess*                   m_WorkProcessList;
@@ -31,10 +32,10 @@ public:
     int                             m_ProcessNum;
     NetIO*                          binary_receive;
     NetIO*                          http_receive;
-    
     NetIO*                          net_send;                          
-
     CTaskQueue*                     m_cFreeSession;
+    sql::Driver*                    driver;
+    sql::Connection*                con;
 };
 
 
