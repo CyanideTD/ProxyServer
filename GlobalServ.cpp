@@ -24,8 +24,6 @@ void GlobalServer::Init(unsigned int threads, int fressNode)
 {
     GlobalServer::Instance();
 
-    g_GlobalServ->InitDatabase();
-
     g_lNodeMgr.Init(fressNode);
     for (int i = 0; i < fressNode; i++)
     {
@@ -46,6 +44,11 @@ void GlobalServer::Init(unsigned int threads, int fressNode)
     g_GlobalServ->m_cFreeSession = new CTaskQueue;
     g_GlobalServ->m_cFreeSession->Init(fressNode);
 
+    g_GlobalServ->m_DBque = new CTaskQueue;
+    g_GlobalServ->m_DBque->Init(fressNode);
+
+    g_GlobalServ->m_DBthread = new DBthread;
+    g_GlobalServ->m_DBthread->Init(g_GlobalServ->m_WorkQue, g_GlobalServ->m_DBque);
 
     g_GlobalServ->binary_receive = new NetIO;
     g_GlobalServ->binary_receive->Init("127.0.0.1", 16070, g_GlobalServ->m_WorkQue, g_GlobalServ->m_RecvQue, false, false);
@@ -60,7 +63,7 @@ void GlobalServer::Init(unsigned int threads, int fressNode)
     {
         g_GlobalServ->m_WorkProcessList[i].init(g_GlobalServ->m_WorkQue, g_GlobalServ->m_RecvQue, 
                                                 g_GlobalServ->binary_receive->m_poLongConn, g_GlobalServ->http_receive->m_poLongConn,
-                                                g_GlobalServ->net_send->m_poLongConn, g_GlobalServ->net_send->m_uLockServer, g_GlobalServ->con);
+                                                g_GlobalServ->net_send->m_poLongConn, g_GlobalServ->net_send->m_uLockServer, g_GlobalServ->m_DBque);
     }
 
 }
@@ -88,11 +91,4 @@ bool GlobalServer::Start()
     }
 
     delete [] thId;
-}
-
-void GlobalServer::InitDatabase()
-{
-    driver = get_driver_instance();
-    con = driver->connect(URL, USER, PASS);
-    con->setSchema(DATABASE);
 }

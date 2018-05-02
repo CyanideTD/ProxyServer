@@ -7,7 +7,11 @@
 
 typedef enum _State
 {
-    TO_LOCK,
+    GET_REQ,
+    GET_LOCK,
+    GET_RES,
+    HAVE_LOCK,
+    SEND_UNLOCK,
     SEND_BACK,
     UNKNOW
 }TaskStake;
@@ -23,11 +27,13 @@ public:
     bool           m_bIsBinaryData;
     TaskStake      m_sState;
 
+    void*          ptr;
+
 
     TVOID Init()
     {
         m_szData = new TUCHAR[10240];
-
+        ptr = 0;
         Reset();
     }
 

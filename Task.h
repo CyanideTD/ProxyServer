@@ -16,16 +16,25 @@ struct LockNode
 
 #pragma pack()
 
-struct ProxyData
+struct ResourceNode
 {
-    int lock_num;
-    LockNode   lock_list[10];
-    TUINT16 type;
-    int timeout;
-    int seq;
+    int         UUID;
+    int         type;
+    int         num;
+    TUINT16     serviceType;
+    void*       ptr;
+};
+
+typedef struct _ProxyData
+{
+    int         lock_num;
+    LockNode    lock_list[10];
+    TUINT16     serviceType;
+    int         timeout;
+    int         seq;
 
     int _retCode;
-};
+}ProxyData;
 
 typedef struct _Task
 {
@@ -44,16 +53,6 @@ typedef struct _Task
     {
         memset(this, 0, sizeof(struct _Task));
     }
-
-    // _Task& operator=(const _Task& task)
-    // {
-    //     if (this != &task)
-    //     {
-    //         tasks = task.tasks;
-    //         length = task.length;
-    //         memcpy(&time, &task.time, sizeof(time));
-    //     }
-    // }
 
     friend bool operator>(_Task t1, _Task t2)
     {

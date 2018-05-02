@@ -4,6 +4,7 @@
 #include "queue_t.h"
 #include "Client.h"
 #include "NetIO.h"
+#include "DBth.h"
 
 #define random(a, b) (((double)rand()/RAND_MAX)*(b-a)+a)
 #define hash_map __gnu_cxx::hash_map
@@ -26,6 +27,7 @@ public:
 
 public:
     CWorkProcess*                   m_WorkProcessList;
+    DBthread*                       m_DBthread;
     hash_map<int, int>*             m_LockFreqMap;
     CTaskQueue*                     m_WorkQue;
     CTaskQueue*                     m_RecvQue;
@@ -34,8 +36,7 @@ public:
     NetIO*                          http_receive;
     NetIO*                          net_send;                          
     CTaskQueue*                     m_cFreeSession;
-    sql::Driver*                    driver;
-    sql::Connection*                con;
+    CTaskQueue*                     m_DBque;
 };
 
 
