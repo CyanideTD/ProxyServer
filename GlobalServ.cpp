@@ -6,6 +6,7 @@
 
 GlobalServer* GlobalServer::g_GlobalServ = NULL;
 CTaskQueue    g_lNodeMgr;
+CQueue<ResourceNode*>    g_lRescNodeMgr;
 
 GlobalServer* GlobalServer::Instance()
 {
@@ -30,6 +31,14 @@ void GlobalServer::Init(unsigned int threads, int fressNode)
         SessionWrapper* session = new SessionWrapper;
         session->Init();
         g_lNodeMgr.WaitTillPush(session);
+    }
+
+    g_lRescNodeMgr.Init(fressNode);
+    for (int i = 0; i < fressNode; i++)
+    {
+        ResourceNode* node = new ResourceNode;
+        node->Reset();
+        g_lRescNodeMgr.WaitTillPush(node);
     }
 
     g_GlobalServ->m_ProcessNum = threads;
@@ -76,6 +85,8 @@ bool GlobalServer::Start()
     pthread_create(&thIOId, NULL, NetIO::RoutineNetIO, g_GlobalServ->binary_receive);
     pthread_create(&thIOId, NULL, NetIO::RoutineNetIO, g_GlobalServ->http_receive);
     pthread_create(&thIOId, NULL, NetIO::RoutineNetIO, g_GlobalServ->net_send);
+
+    pthread_create(&thIOId, NULL, DBthread::Start, g_GlobalServ->m_DBthread);
 
     for (int i = 0; i < g_GlobalServ->m_ProcessNum; i++)
     {

@@ -23,6 +23,11 @@ struct ResourceNode
     int         num;
     TUINT16     serviceType;
     void*       ptr;
+
+    void Reset()
+    {
+        memset(this, 0, sizeof(ResourceNode));
+    }
 };
 
 typedef struct _ProxyData

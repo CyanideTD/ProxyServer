@@ -131,7 +131,7 @@ TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
     {
         session->m_sState = SEND_BACK;
     }
-    else
+    else if (session->m_sState == GET_LOCK)
     {
         session->m_sState = GET_RES;
     }

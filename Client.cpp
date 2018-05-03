@@ -7,6 +7,7 @@ using namespace std;
 long glo_Seq = 0;
 pthread_mutex_t seq_lock = PTHREAD_MUTEX_INITIALIZER;
 extern CTaskQueue    g_lNodeMgr;
+extern CQueue<ResourceNode*>    g_lRescNodeMgr;
 
 CWorkProcess::CWorkProcess()
 {
@@ -33,6 +34,7 @@ void CWorkProcess::init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* s
     m_IHttpRecvConn = httpsend;
     m_ILockConn = lock;
     lock_server = lockserver;
+    m_dbQue = dbque;
 }
 
 
@@ -50,8 +52,11 @@ void* CWorkProcess::Start(TVOID* pParam)
     return NULL;
 }
 
-void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data)
+void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ProxyData* data)
 {
+
+    ResourceNode* node = 0;
+    g_lRescNodeMgr.WaitTillPop(node);
     unPack->UntachPackage();
     unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
     unPack->Unpack();
@@ -68,9 +73,10 @@ void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ResourceNode* 
     data->lock_num = 1;
     data->serviceType = EN_SERVICE_TYPE_HU2LOCK__GET_REQ;
     session->m_sState = GET_LOCK;
+    session->ptr = node;
 }
 
-void CWorkProcess::ParseResPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data)
+void CWorkProcess::ParseResPackage(SessionWrapper* session, ProxyData* data)
 {
     unPack->UntachPackage();
     unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
@@ -83,12 +89,14 @@ void CWorkProcess::ParseResPackage(SessionWrapper* session, ResourceNode* node, 
     }
     else
     {
-
+        session->m_sState = SEND_BACK;
     }
 }
 
-void CWorkProcess::ParseTextPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data)
+void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
 {
+
+    ResourceNode* node = new ResourceNode;
     std::string request((char*)session->m_szData, session->m_udwBufLen);
     std::istringstream iss(request);
     string method;
@@ -121,13 +129,20 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ResourceNode* node,
         }
     }
 
+    if (params["type"] == "" || params["num"] == "" || params["UUID"]== "" || params["service"] == "")
+    {
+        cout << "Invalid Input\n";
+        EncounterError(session);
+        return;
+    }
+
     cout << "protocol: " << protocol << "\n";
     cout << "method  : " << method << "\n";
     cout << "url     :" << url << "\n";
 
-    cout << "params  : " << params["type"] << "\n";
-    cout << "params  : " << params["num"] << "\n";
-    cout << "params  : " << params["UUID"] << "\n";
+    cout << "type    : " << params["type"] << "\n";
+    cout << "num     : " << params["num"] << "\n";
+    cout << "UUID    : " << params["UUID"] << "\n";
 
     pack->ResetContent();
     pack->SetServiceType((TUINT32)atoi(params["service"].c_str()));
@@ -141,30 +156,33 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ResourceNode* node,
     node->UUID = atoi(params["UUID"].c_str());
     node->type = atoi(params["type"].c_str());
     node->num = atoi(params["num"].c_str());
+    node->serviceType = atoi(params["service"].c_str());
     session->m_sState = GET_LOCK;
+
+    session->ptr = node;
 }
 
-void CWorkProcess::ParsePackage(SessionWrapper* session, ResourceNode* node, ProxyData* data)
+void CWorkProcess::ParsePackage(SessionWrapper* session, ProxyData* data)
 {
-    if (session->m_bIsBinaryData)
+    if (session->m_sState == GET_REQ)
     {
-        if (session->m_sState == GET_REQ)
+        if (session->m_bIsBinaryData)
         {
-            ParseBinaryReqPackage(session, node, data);
+            ParseBinaryReqPackage(session, data);
         }
         else
         {
-            ParseResPackage(session, node, data);
+            ParseTextPackage(session, data);
         }
     }
     else
     {
 
-        ParseTextPackage(session, node, data);
+        ParseResPackage(session, data);
     }
 }
 
-void CWorkProcess::SendToServer(SessionWrapper* session, ResourceNode* node, ProxyData* data)
+void CWorkProcess::SendToServer(SessionWrapper* session, ProxyData* data)
 {
     pack->ResetContent();
     pthread_mutex_lock(&seq_lock);
@@ -200,8 +218,8 @@ void CWorkProcess::SendToServer(SessionWrapper* session, ResourceNode* node, Pro
     stTasks.m_Tasks[0].SetNeedResponse(1);
     stTasks.SetValidTasks(1);
 
-    session->ptr = node;
     stTasks.m_UserData1.ptr = session;
+    // session->m_bIsBinaryData = true;
     m_ILockConn->SendData(&stTasks);
 }
 
@@ -209,8 +227,13 @@ void CWorkProcess::SendPackage(SessionWrapper* session, ProxyData* data)
 {
     pack->ResetContent();
 
+    unPack->UntachPackage();
+    unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
+    unPack->Unpack();
     pack->SetSeq(session->m_udwClientSeq);
-    pack->SetKey(EN_GLOBAL_KEY__RES_CODE, data->_retCode);
+    unPack->GetVal(EN_GLOBAL_KEY__RES_CODE, &data->_retCode);
+    data->serviceType = unPack->GetServiceType();
+    pack->SetKey(EN_GLOBAL_KEY__RES_CODE,data->_retCode);
 
     TUCHAR *pucPackage = NULL;
 	TUINT32 udwPackageLen = 0;
@@ -220,19 +243,16 @@ void CWorkProcess::SendPackage(SessionWrapper* session, ProxyData* data)
 
     ILongConn* conn = m_IBinaryRecvConn;
     LongConnHandle handle = session->m_stHandle;
-    int i = 0;
-
-    conn = m_ILockConn;
-    handle =lock_server;
-
 
     LTasksGroup        stTasks;
 	stTasks.m_Tasks[0].SetConnSession(handle);
 	stTasks.m_Tasks[0].SetSendData(pucPackage, udwPackageLen);
-	stTasks.m_Tasks[0].SetNeedResponse(i);
+	stTasks.m_Tasks[0].SetNeedResponse(0);
 	stTasks.SetValidTasks(1);
-    stTasks.m_UserData1.ptr = session;
 
+    ResourceNode* node = (ResourceNode*) session->ptr;
+    node->Reset();
+    g_lRescNodeMgr.WaitTillPush(node);
 
     session->Reset();
     g_lNodeMgr.WaitTillPush(session);
@@ -273,9 +293,6 @@ void CWorkProcess::SendTextPackage(SessionWrapper* session, ProxyData* data)
     strcat(buf, body);
     length += strlen(body);
 
-    cout << buf;
-
-
     int sock = m_IHttpRecvConn->GetSockHandle(session->m_stHandle);
     
     send(sock, buf, length, 0);
@@ -290,30 +307,33 @@ TVOID CWorkProcess::WorkRoutine()
 {
     SessionWrapper* session = 0;
     m_dWorkQueue->WaitTillPop(session);
-    ResourceNode* node = new ResourceNode;
 
     ProxyData data;
     bool isContinue = false;
 
     if (session->m_sState == GET_REQ)
     {
-        ParsePackage(session, node, &data);
+        ParsePackage(session, &data);
     }
 
     if (session->m_sState == GET_LOCK)
     {
-        SendToServer(session, node, &data);
+        SendToServer(session, &data);
+        return;
     }
 
     if (session->m_sState == GET_RES)
     {
-        ParsePackage(session, node, &data);
+        ParsePackage(session, &data);
+        return;
     }
 
 
     if (session->m_sState == SEND_UNLOCK)
     {
-        SendToServer(session, node, &data);
+
+        SendToServer(session, &data);
+        return;
     }
 
     if (session->m_sState == SEND_BACK)
@@ -327,4 +347,23 @@ TVOID CWorkProcess::WorkRoutine()
             SendTextPackage(session, &data);
         }
     }
+}
+
+void CWorkProcess::EncounterError(SessionWrapper* session)
+{
+    if (session->m_bIsBinaryData)
+    {
+        m_IBinaryRecvConn->RemoveLongConnSession(session->m_stHandle);
+    }
+    else
+    {
+        m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
+    }
+
+    ResourceNode* node = (ResourceNode*) session->ptr;
+    node->Reset();
+    g_lRescNodeMgr.WaitTillPush(node);
+    
+    session->Reset();
+    g_lNodeMgr.WaitTillPush(session);
 }

@@ -21,20 +21,20 @@ public :
 
     void     init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, ILongConn* httpsend, ILongConn* lock, LongConnHandle lockserver, CTaskQueue* dbque);
 
-	void 	ParsePackage(SessionWrapper* session, ResourceNode* node, ProxyData* data);
-	void 	ParseReqPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data);
-	void 	ParseTextPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data);
-	void 	ParseResPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data);
-	void	ParseBinaryReqPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data);
+	void 	ParsePackage(SessionWrapper* session, ProxyData* data);
+	void 	ParseReqPackage(SessionWrapper* session, ProxyData* data);
+	void 	ParseTextPackage(SessionWrapper* session, ProxyData* data);
+	void 	ParseResPackage(SessionWrapper* session, ProxyData* data);
+	void	ParseBinaryReqPackage(SessionWrapper* session, ProxyData* data);
 
-	void  	SendToServer(SessionWrapper* session, ResourceNode* node, ProxyData* data);
+	void  	SendToServer(SessionWrapper* session, ProxyData* data);
 
-	void 	ProcessPackage(SessionWrapper* session, ResourceNode* node, ProxyData* data);
+	void 	ProcessPackage(SessionWrapper* session, ProxyData* data);
 
 	void 	SendPackage(SessionWrapper* session, ProxyData* data);
 	void 	SendTextPackage(SessionWrapper* session, ProxyData* data);
 
-	void 	DoSomeThing(SessionWrapper* session, ResourceNode* node, ProxyData* data);
+	void 	EncounterError(SessionWrapper* session);
 private:
     CBaseProtocolPack* pack;
     CBaseProtocolUnpack* unPack;

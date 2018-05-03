@@ -1,9 +1,14 @@
 #include "DBth.h"
 
+DBthread::DBthread()
+{
+
+}
+
 void DBthread::Init(CTaskQueue* workque, CTaskQueue* workProcessQue)
 {
-    m_workQue = workque;
-    m_WorkProcessQue = workProcessQue;
+    m_workQue = workProcessQue;
+    m_WorkProcessQue = workque;
     m_DBdriver = get_driver_instance();
     m_DBcon = m_DBdriver->connect(URL, USER, PASS);
 
@@ -12,7 +17,7 @@ void DBthread::Init(CTaskQueue* workque, CTaskQueue* workProcessQue)
     stmt->execute("USE " DATABASE);
 
     sql::ResultSet* res;
-    res = stmt->executeQuery("SELECT * FROM Resources");
+    res = stmt->executeQuery("SELECT * FROM Resource");
 
     while (res->next())
     {
@@ -30,9 +35,31 @@ void DBthread::Init(CTaskQueue* workque, CTaskQueue* workProcessQue)
 void* DBthread::Start(TVOID *pParam)
 {
     DBthread* db = (DBthread*) pParam;
+    int i = 0;
     while (true)
     {
         db->WorkRoutine();
+        i++;
+        if (i == 1000)
+        {
+            db->Store();
+            i = 0;
+        }
+    }
+}
+
+void DBthread::Store()
+{
+    sql::PreparedStatement* stmt;
+    stmt = m_DBcon->prepareStatement("UPDATE Resource SET Gold=(?), Wood=(?) WHERE UUID=(?)");
+    std::map<int, int*>::iterator it = m_UserMap.begin();
+    while (it != m_UserMap.end())
+    {
+        stmt->setInt(1, (it->second)[0]);
+        stmt->setInt(2, (it->second)[1]);
+        stmt->setInt(3, it->first);
+        stmt->execute();
+        it++;
     }
 }
 
@@ -43,7 +70,14 @@ void DBthread::WorkRoutine()
 
     ResourceNode* node = (ResourceNode*)session->ptr;
 
-    (m_UserMap[node->UUID])[node->type] += node->num;
+    if (node->serviceType == EN_SERVICE_TYPE_RESOURCE_GET)
+    {
+        (m_UserMap[node->UUID])[node->type] += node->num;
+    }
+    else
+    {
+        (m_UserMap[node->UUID])[node->type] -= node->num;
+    }
     session->m_sState = SEND_UNLOCK;
     m_WorkProcessQue->WaitTillPush(session);
 }

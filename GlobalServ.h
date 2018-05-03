@@ -11,6 +11,7 @@
 
 class NetIO;
 class CWorkProcess;
+class DBthread;
 
 class GlobalServer
 {

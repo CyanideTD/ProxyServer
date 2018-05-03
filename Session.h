@@ -7,7 +7,7 @@
 
 typedef enum _State
 {
-    GET_REQ,
+    GET_REQ = 0,
     GET_LOCK,
     GET_RES,
     HAVE_LOCK,
@@ -25,7 +25,7 @@ public:
     TUCHAR*        m_szData;
     TUINT32        m_udwBufLen;
     bool           m_bIsBinaryData;
-    TaskStake      m_sState;
+    int            m_sState;
 
     void*          ptr;
 
@@ -33,7 +33,6 @@ public:
     TVOID Init()
     {
         m_szData = new TUCHAR[10240];
-        ptr = 0;
         Reset();
     }
 
@@ -45,6 +44,7 @@ public:
         m_udwBufLen = 0;
         m_sState = UNKNOW;
         memset(m_szData, 0, 10240);
+        ptr = 0;
     }
 
 };

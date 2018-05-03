@@ -17,4 +17,5 @@ public:
     void Init(CTaskQueue* workque, CTaskQueue* workProcessQue);
     static void* Start(TVOID *pParam);
     void WorkRoutine();
+    void Store();
 };
