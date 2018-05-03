@@ -6,7 +6,7 @@
 
 GlobalServer* GlobalServer::g_GlobalServ = NULL;
 CTaskQueue    g_lNodeMgr;
-CQueue<ResourceNode*>    g_lRescNodeMgr;
+CQueue<Resources*>    g_lRescNodeMgr;
 
 GlobalServer* GlobalServer::Instance()
 {
@@ -36,7 +36,7 @@ void GlobalServer::Init(unsigned int threads, int fressNode)
     g_lRescNodeMgr.Init(fressNode);
     for (int i = 0; i < fressNode; i++)
     {
-        ResourceNode* node = new ResourceNode;
+        Resources* node = new Resources;
         node->Reset();
         g_lRescNodeMgr.WaitTillPush(node);
     }

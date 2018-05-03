@@ -7,7 +7,7 @@ using namespace std;
 long glo_Seq = 0;
 pthread_mutex_t seq_lock = PTHREAD_MUTEX_INITIALIZER;
 extern CTaskQueue    g_lNodeMgr;
-extern CQueue<ResourceNode*>    g_lRescNodeMgr;
+extern CQueue<Resources*>    g_lRescNodeMgr;
 
 CWorkProcess::CWorkProcess()
 {
@@ -55,22 +55,36 @@ void* CWorkProcess::Start(TVOID* pParam)
 void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ProxyData* data)
 {
 
-    ResourceNode* node = 0;
+    Resources* node = 0;
     g_lRescNodeMgr.WaitTillPop(node);
     unPack->UntachPackage();
     unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
     unPack->Unpack();
+
     session->m_udwClientSeq = unPack->GetSeq();
     TUINT32 len = 0;
-    unPack->GetVal(EN_KEY_RESOURCE, (TUCHAR**)&node, &len);
+
+    ResourceNode test;
+
+    unPack->GetVal(EN_KEY_RESOURCE_NUM, &node->num);
+
+    TUCHAR* pszValBuf = 0;
+
+    unPack->GetVal(EN_KEY_RESOURCE_LIST, &pszValBuf, &len);
+
+    memcpy(&node->nodes, pszValBuf, sizeof(ResourceNode) * node->num);
+
     node->serviceType = unPack->GetServiceType();
 
-    data->lock_list[0].type = 1;
-    data->lock_list[0].key = node->UUID;
+    for (int i = 0; i < node->num; i++)
+    {
+        data->lock_list[i].type = 1;
+        data->lock_list[i].key = node->nodes[i].UUID;
+    }
 
 
 
-    data->lock_num = 1;
+    data->lock_num = node->num;
     data->serviceType = EN_SERVICE_TYPE_HU2LOCK__GET_REQ;
     session->m_sState = GET_LOCK;
     session->ptr = node;
@@ -96,7 +110,8 @@ void CWorkProcess::ParseResPackage(SessionWrapper* session, ProxyData* data)
 void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
 {
 
-    ResourceNode* node = new ResourceNode;
+    Resources* node = 0;
+    g_lRescNodeMgr.WaitTillPop(node);
     std::string request((char*)session->m_szData, session->m_udwBufLen);
     std::istringstream iss(request);
     string method;
@@ -153,9 +168,10 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
     data->lock_num = 1;
     data->serviceType = EN_SERVICE_TYPE_HU2LOCK__GET_REQ;
 
-    node->UUID = atoi(params["UUID"].c_str());
-    node->type = atoi(params["type"].c_str());
-    node->num = atoi(params["num"].c_str());
+    node->num = 1;
+    node->nodes[0].UUID = atoi(params["UUID"].c_str());
+    node->nodes[0].type = atoi(params["type"].c_str());
+    node->nodes[0].num = atoi(params["num"].c_str());
     node->serviceType = atoi(params["service"].c_str());
     session->m_sState = GET_LOCK;
 
@@ -250,7 +266,7 @@ void CWorkProcess::SendPackage(SessionWrapper* session, ProxyData* data)
 	stTasks.m_Tasks[0].SetNeedResponse(0);
 	stTasks.SetValidTasks(1);
 
-    ResourceNode* node = (ResourceNode*) session->ptr;
+    Resources* node = (Resources*) session->ptr;
     node->Reset();
     g_lRescNodeMgr.WaitTillPush(node);
 
@@ -360,10 +376,10 @@ void CWorkProcess::EncounterError(SessionWrapper* session)
         m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
     }
 
-    ResourceNode* node = (ResourceNode*) session->ptr;
+    Resources* node = (Resources*) session->ptr;
     node->Reset();
     g_lRescNodeMgr.WaitTillPush(node);
-    
+
     session->Reset();
     g_lNodeMgr.WaitTillPush(session);
 }

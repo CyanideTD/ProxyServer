@@ -59,7 +59,8 @@ enum EDBPROXYKeySet
 	// lock -> hu
 	EN_KEY_LOCK2HU__BEGIN = 6100,
 
-	EN_KEY_RESOURCE = 6200,
+	EN_KEY_RESOURCE_NUM = 6200,
+	EN_KEY_RESOURCE_LIST,
 };
 
 enum RelationDataServiceType

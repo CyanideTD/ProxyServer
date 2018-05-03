@@ -68,15 +68,21 @@ void DBthread::WorkRoutine()
     SessionWrapper* session = 0;
     m_workQue->WaitTillPop(session);
 
-    ResourceNode* node = (ResourceNode*)session->ptr;
+    Resources* node = (Resources*)session->ptr;
 
     if (node->serviceType == EN_SERVICE_TYPE_RESOURCE_GET)
     {
-        (m_UserMap[node->UUID])[node->type] += node->num;
+        for (int i = 0; i < node->num; i++)
+        {
+            (m_UserMap[node->nodes[i].UUID])[node->nodes[i].type] += node->nodes[i].num;
+        }
     }
     else
     {
-        (m_UserMap[node->UUID])[node->type] -= node->num;
+        for (int i = 0; i < node->num; i++)
+        {
+            (m_UserMap[node->nodes[i].UUID])[node->nodes[i].type] -= node->nodes[i].num;
+        }
     }
     session->m_sState = SEND_UNLOCK;
     m_WorkProcessQue->WaitTillPush(session);

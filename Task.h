@@ -21,12 +21,22 @@ struct ResourceNode
     int         UUID;
     int         type;
     int         num;
-    TUINT16     serviceType;
-    void*       ptr;
 
     void Reset()
     {
         memset(this, 0, sizeof(ResourceNode));
+    }
+};
+
+struct Resources
+{
+    ResourceNode  nodes[10];
+    int           num;
+    TUINT16       serviceType;
+    void*         ptr;
+    void Reset()
+    {
+        memset(this, 0, sizeof(Resources));
     }
 };
 
