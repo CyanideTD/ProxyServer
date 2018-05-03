@@ -26,6 +26,7 @@ public:
     TUINT32        m_udwBufLen;
     bool           m_bIsBinaryData;
     int            m_sState;
+    TINT32         m_retCode;
 
     void*          ptr;
 

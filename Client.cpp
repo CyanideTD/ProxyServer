@@ -95,6 +95,7 @@ void CWorkProcess::ParseResPackage(SessionWrapper* session, ProxyData* data)
     unPack->UntachPackage();
     unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
     unPack->Unpack();
+    data->_retCode = -1;
     unPack->GetVal(EN_GLOBAL_KEY__RES_CODE, &data->_retCode);
 
     if (data->_retCode == 0)
@@ -103,7 +104,9 @@ void CWorkProcess::ParseResPackage(SessionWrapper* session, ProxyData* data)
     }
     else
     {
+        session->m_retCode = data->_retCode;
         session->m_sState = SEND_BACK;
+        m_dWorkQueue->WaitTillPush(session);
     }
 }
 
@@ -151,13 +154,13 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
         return;
     }
 
-    cout << "protocol: " << protocol << "\n";
-    cout << "method  : " << method << "\n";
-    cout << "url     :" << url << "\n";
+    // cout << "protocol: " << protocol << "\n";
+    // cout << "method  : " << method << "\n";
+    // cout << "url     :" << url << "\n";
 
-    cout << "type    : " << params["type"] << "\n";
-    cout << "num     : " << params["num"] << "\n";
-    cout << "UUID    : " << params["UUID"] << "\n";
+    // cout << "type    : " << params["type"] << "\n";
+    // cout << "num     : " << params["num"] << "\n";
+    // cout << "UUID    : " << params["UUID"] << "\n";
 
     pack->ResetContent();
     pack->SetServiceType((TUINT32)atoi(params["service"].c_str()));
@@ -208,6 +211,7 @@ void CWorkProcess::SendToServer(SessionWrapper* session, ProxyData* data)
 
     data->seq = seq;
     pack->SetSeq(seq);
+    int needResponse = 0;
 
     if (session->m_sState == GET_LOCK)
     {
@@ -215,12 +219,15 @@ void CWorkProcess::SendToServer(SessionWrapper* session, ProxyData* data)
         pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, data->lock_num);
         pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, (TUCHAR*)data->lock_list, sizeof(LockNode) * data->lock_num);
         pack->SetKey(EN_KEY_HU2LOCK__REQ_TIMEOUT_US, data->timeout);
+        session->m_sState = GET_RES;
+        needResponse = 1;
     }
     else
     {
         pack->SetServiceType(EN_SERVICE_TYPE_HU2LOCK__RELEASE_REQ);
         pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_NUM, data->lock_num);
         pack->SetKey(EN_KEY_HU2LOCK__REQ_KEY_LIST, (TUCHAR*)data->lock_list, sizeof(LockNode) * data->lock_num);
+        session->m_sState = SEND_BACK;
     }
 
     TUCHAR* pucPackage = NULL;
@@ -231,29 +238,28 @@ void CWorkProcess::SendToServer(SessionWrapper* session, ProxyData* data)
     LTasksGroup stTasks;
     stTasks.m_Tasks[0].SetConnSession(lock_server);
     stTasks.m_Tasks[0].SetSendData(pucPackage, udwPackageLen);
-    stTasks.m_Tasks[0].SetNeedResponse(1);
+    stTasks.m_Tasks[0].SetNeedResponse(needResponse);
     stTasks.SetValidTasks(1);
 
     stTasks.m_UserData1.ptr = session;
     // session->m_bIsBinaryData = true;
-    m_ILockConn->SendData(&stTasks);
+    if (m_ILockConn->SendData(&stTasks) == FALSE)
+    {
+        EncounterError(session);
+    }
 }
 
 void CWorkProcess::SendPackage(SessionWrapper* session, ProxyData* data)
 {
     pack->ResetContent();
 
-    unPack->UntachPackage();
-    unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
-    unPack->Unpack();
     pack->SetSeq(session->m_udwClientSeq);
-    unPack->GetVal(EN_GLOBAL_KEY__RES_CODE, &data->_retCode);
-    data->serviceType = unPack->GetServiceType();
-    pack->SetKey(EN_GLOBAL_KEY__RES_CODE,data->_retCode);
+
+    pack->SetKey(EN_GLOBAL_KEY__RES_CODE, session->m_retCode);
 
     TUCHAR *pucPackage = NULL;
 	TUINT32 udwPackageLen = 0;
-    pack->SetServiceType(data->serviceType);
+
     pack->GetPackage(&pucPackage, &udwPackageLen);
 
 
@@ -274,7 +280,7 @@ void CWorkProcess::SendPackage(SessionWrapper* session, ProxyData* data)
     g_lNodeMgr.WaitTillPush(session);
 
     conn->SendData(&stTasks);
-}
+} 
 
 void CWorkProcess::SendTextPackage(SessionWrapper* session, ProxyData* data)
 {
@@ -283,7 +289,7 @@ void CWorkProcess::SendTextPackage(SessionWrapper* session, ProxyData* data)
     char* response = "HTTP/1.1 200 OK\r\n";
     char* content_type = "Content-Type:text/html\r\n\r\n";
     char* body;
-    if (data->_retCode == 0)
+    if (session->m_retCode == 0)
     {
         body = "<h1> succeed <h1>";
     }
@@ -294,26 +300,32 @@ void CWorkProcess::SendTextPackage(SessionWrapper* session, ProxyData* data)
     char* encoding = "Content-Encoding:application\r\n";
     char* header = "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />";
 
-    strcat(buf, response);
+    memcpy(buf + length, response, strlen(response));
     length += strlen(response);
 
-    strcat(buf, encoding);
+    memcpy(buf + length, encoding, strlen(encoding));
     length += strlen(encoding);
 
-    strcat(buf, content_type);
+    memcpy(buf + length, content_type, strlen(content_type));
     length += strlen(content_type);
 
-    strcat(buf, header);
+    memcpy(buf + length, header, strlen(header));
     length += strlen(header);
     
-    strcat(buf, body);
+    memcpy(buf + length, body, strlen(body));
     length += strlen(body);
+ 
+    printf(buf, "%s");
 
     int sock = m_IHttpRecvConn->GetSockHandle(session->m_stHandle);
     
     send(sock, buf, length, 0);
 
     m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
+    Resources* node = (Resources*) session->ptr;
+    node->Reset();
+    g_lRescNodeMgr.WaitTillPush(node);
+
     session->Reset();
     g_lNodeMgr.WaitTillPush(session);
     delete [] buf;
@@ -367,13 +379,16 @@ TVOID CWorkProcess::WorkRoutine()
 
 void CWorkProcess::EncounterError(SessionWrapper* session)
 {
-    if (session->m_bIsBinaryData)
+    if (session->m_stHandle != lock_server)
     {
-        m_IBinaryRecvConn->RemoveLongConnSession(session->m_stHandle);
-    }
-    else
-    {
-        m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
+        if (session->m_bIsBinaryData)
+        {
+            m_IBinaryRecvConn->RemoveLongConnSession(session->m_stHandle);
+        }
+        else
+        {
+            m_IHttpRecvConn->RemoveLongConnSession(session->m_stHandle);
+        }
     }
 
     Resources* node = (Resources*) session->ptr;

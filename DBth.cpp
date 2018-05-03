@@ -70,6 +70,8 @@ void DBthread::WorkRoutine()
 
     Resources* node = (Resources*)session->ptr;
 
+    sleep(5);
+
     if (node->serviceType == EN_SERVICE_TYPE_RESOURCE_GET)
     {
         for (int i = 0; i < node->num; i++)
@@ -84,6 +86,8 @@ void DBthread::WorkRoutine()
             (m_UserMap[node->nodes[i].UUID])[node->nodes[i].type] -= node->nodes[i].num;
         }
     }
+    session->m_retCode = 0;
     session->m_sState = SEND_UNLOCK;
     m_WorkProcessQue->WaitTillPush(session);
+    Store();
 }

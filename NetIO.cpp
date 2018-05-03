@@ -116,6 +116,16 @@ TVOID NetIO::OnUserRequest(LongConnHandle stHandle, const TUCHAR* pszData, TUINT
     SessionWrapper* session = 0;
     g_lNodeMgr.WaitTillPop(session);
     memcpy(session->m_szData, pszData, udwDataLen);
+
+    std::string s((char*)session->m_szData, session->m_udwBufLen);
+
+    if (s.find("favicon") != std::string::npos)
+    {
+        session->Reset();
+        g_lNodeMgr.WaitTillPush(session);
+        return;
+    }
+
     session->m_stHandle = stHandle;
     session->m_udwBufLen = udwDataLen;
     session->m_bIsBinaryData = !m_bIsHttpListen;
@@ -127,18 +137,24 @@ TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
 {
     SessionWrapper* session = 0;
     session = (SessionWrapper*) pstTasksGrp->m_UserData1.ptr;
-    if (session->m_sState == SEND_UNLOCK)
-    {
-        session->m_sState = SEND_BACK;
-    }
-    else if (session->m_sState == GET_LOCK)
-    {
-        session->m_sState = GET_RES;
-    }
     
     memcpy(session->m_szData, pstTasksGrp->m_Tasks[0]._pReceivedData, pstTasksGrp->m_Tasks[0]._uReceivedDataLen);
     session->m_udwBufLen = pstTasksGrp->m_Tasks[0]._uReceivedDataLen;
-    m_poWorkQueue->WaitTillPush(session);
+
+    m_poUnpack->UntachPackage();
+    m_poUnpack->AttachPackage(session->m_szData, session->m_udwBufLen);
+    m_poUnpack->Unpack();
+
+    int service = m_poUnpack->GetServiceType();
+    
+    if (session->m_sState == SEND_BACK || service == EN_SERVICE_TYPE_LOCK2HU__GET_RSP || service == EN_SERVICE_TYPE_LOCK2HU__RELEASE_RSP)
+    {
+        m_poWorkQueue->WaitTillPush(session);   
+    }
+    else
+    {
+
+    }
 
 }
 
