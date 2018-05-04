@@ -52,7 +52,7 @@ void* CWorkProcess::Start(TVOID* pParam)
     return NULL;
 }
 
-void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ProxyData* data)
+void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue)
 {
 
     Resources* node = 0;
@@ -74,6 +74,14 @@ void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ProxyData* dat
 
     memcpy(&node->nodes, pszValBuf, sizeof(ResourceNode) * node->num);
 
+    if ((len / sizeof(ResourceNode)) != node->num)
+    {
+        printf("Invalid node nums\n");
+        session->m_retCode = 200;
+        session->m_sState = SEND_BACK;
+        return;
+    }
+
     node->serviceType = unPack->GetServiceType();
 
     for (int i = 0; i < node->num; i++)
@@ -90,7 +98,7 @@ void CWorkProcess::ParseBinaryReqPackage(SessionWrapper* session, ProxyData* dat
     session->ptr = node;
 }
 
-void CWorkProcess::ParseResPackage(SessionWrapper* session, ProxyData* data)
+void CWorkProcess::ParseResPackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue)
 {
     unPack->UntachPackage();
     unPack->AttachPackage(session->m_szData, session->m_udwBufLen);
@@ -110,7 +118,7 @@ void CWorkProcess::ParseResPackage(SessionWrapper* session, ProxyData* data)
     }
 }
 
-void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
+void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue)
 {
 
     Resources* node = 0;
@@ -124,6 +132,9 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
     if (!(iss >> method >> query >> protocol))
     {
         cout << "ERROR: parsing request\n";
+        session->m_retCode = 300;
+        session->m_sState = SEND_BACK;
+        return;
     }
 
     iss.clear();
@@ -134,6 +145,10 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
     if (!getline(iss, url, '?'))
     {
         cout << "ERROR: parsing request\n";
+        cout << "ERROR: parsing request\n";
+        session->m_retCode = 300;
+        session->m_sState = SEND_BACK;
+        return;
     }
 
     map<string, string> params;
@@ -150,7 +165,8 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
     if (params["type"] == "" || params["num"] == "" || params["UUID"]== "" || params["service"] == "")
     {
         cout << "Invalid Input\n";
-        EncounterError(session);
+        session->m_retCode = 300;
+        session->m_sState = SEND_BACK;
         return;
     }
 
@@ -181,28 +197,34 @@ void CWorkProcess::ParseTextPackage(SessionWrapper* session, ProxyData* data)
     session->ptr = node;
 }
 
-void CWorkProcess::ParsePackage(SessionWrapper* session, ProxyData* data)
+void CWorkProcess::ParsePackage(SessionWrapper* session, ProxyData* data, bool* isContinue)
 {
     if (session->m_sState == GET_REQ)
     {
         if (session->m_bIsBinaryData)
         {
-            ParseBinaryReqPackage(session, data);
+            ParseBinaryReqPackage(session, data, isContinue);
         }
         else
         {
-            ParseTextPackage(session, data);
+            ParseTextPackage(session, data, isContinue);
         }
     }
     else
     {
 
-        ParseResPackage(session, data);
+        ParseResPackage(session, data, isContinue);
     }
 }
 
-void CWorkProcess::SendToServer(SessionWrapper* session, ProxyData* data)
+void CWorkProcess::SendToServer(SessionWrapper* session, ProxyData* data, bool* isContinue)
 {
+
+    if(data->serviceType == EN_SERVICE_TYPE_RESOURCE_COST || data->serviceType == EN_SERVICE_TYPE_RESOURCE_GET)
+    {
+        *isContinue = false;
+    }
+
     pack->ResetContent();
     pthread_mutex_lock(&seq_lock);
     int seq = glo_Seq;
@@ -245,7 +267,9 @@ void CWorkProcess::SendToServer(SessionWrapper* session, ProxyData* data)
     // session->m_bIsBinaryData = true;
     if (m_ILockConn->SendData(&stTasks) == FALSE)
     {
-        EncounterError(session);
+        session->m_sState = SEND_BACK;
+        session->m_retCode = 200;
+        *isContinue = true;
     }
 }
 
@@ -337,31 +361,43 @@ TVOID CWorkProcess::WorkRoutine()
     m_dWorkQueue->WaitTillPop(session);
 
     ProxyData data;
-    bool isContinue = false;
+    bool isContinue = true;
 
     if (session->m_sState == GET_REQ)
     {
-        ParsePackage(session, &data);
+        ParsePackage(session, &data, &isContinue);
+        if (!isContinue)
+        {
+            return;
+        }
     }
 
     if (session->m_sState == GET_LOCK)
     {
-        SendToServer(session, &data);
-        return;
+        SendToServer(session, &data, &isContinue);
+        if (!isContinue)
+        {
+            return;
+        }
     }
 
     if (session->m_sState == GET_RES)
     {
-        ParsePackage(session, &data);
-        return;
+        ParsePackage(session, &data, &isContinue);
+        if (!isContinue)
+        {
+            return;
+        }
     }
 
 
     if (session->m_sState == SEND_UNLOCK)
     {
-
-        SendToServer(session, &data);
-        return;
+        SendToServer(session, &data, &isContinue);
+        if (!isContinue)
+        {
+            return;
+        }
     }
 
     if (session->m_sState == SEND_BACK)

@@ -129,8 +129,22 @@ TVOID NetIO::OnUserRequest(LongConnHandle stHandle, const TUCHAR* pszData, TUINT
     session->m_stHandle = stHandle;
     session->m_udwBufLen = udwDataLen;
     session->m_bIsBinaryData = !m_bIsHttpListen;
-    session->m_sState = GET_REQ;
-    m_poWorkQueue->WaitTillPush(session);
+
+    m_poUnpack->UntachPackage();
+    m_poUnpack->AttachPackage(session->m_szData, session->m_udwBufLen);
+    m_poUnpack->Unpack();
+
+    int service = m_poUnpack->GetServiceType();
+
+    if (service == EN_SERVICE_TYPE_RESOURCE_GET || EN_SERVICE_TYPE_RESOURCE_COST)
+    {
+        session->m_sState = GET_REQ;
+        m_poWorkQueue->WaitTillPush(session);
+    }
+    else
+    {
+        
+    }
 }
 
 TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
@@ -146,7 +160,7 @@ TVOID NetIO::OnTasksFinishedCallBack(LTasksGroup* pstTasksGrp)
     m_poUnpack->Unpack();
 
     int service = m_poUnpack->GetServiceType();
-    
+
     if (session->m_sState == SEND_BACK || service == EN_SERVICE_TYPE_LOCK2HU__GET_RSP || service == EN_SERVICE_TYPE_LOCK2HU__RELEASE_RSP)
     {
         m_poWorkQueue->WaitTillPush(session);   

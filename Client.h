@@ -21,13 +21,13 @@ public :
 
     void     init(CTaskQueue* taskQueue, CTaskQueue* recvQue, ILongConn* send, ILongConn* httpsend, ILongConn* lock, LongConnHandle lockserver, CTaskQueue* dbque);
 
-	void 	ParsePackage(SessionWrapper* session, ProxyData* data);
-	void 	ParseReqPackage(SessionWrapper* session, ProxyData* data);
-	void 	ParseTextPackage(SessionWrapper* session, ProxyData* data);
-	void 	ParseResPackage(SessionWrapper* session, ProxyData* data);
-	void	ParseBinaryReqPackage(SessionWrapper* session, ProxyData* data);
+	void 	ParsePackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue);
+	void 	ParseReqPackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue);
+	void 	ParseTextPackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue);
+	void 	ParseResPackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue);
+	void	ParseBinaryReqPackage(SessionWrapper* session, ProxyData* data, bool* bIsContinue);
 
-	void  	SendToServer(SessionWrapper* session, ProxyData* data);
+	void  	SendToServer(SessionWrapper* session, ProxyData* data, bool* bIsContinue);
 
 	void 	ProcessPackage(SessionWrapper* session, ProxyData* data);
 
